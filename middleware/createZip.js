@@ -65,37 +65,13 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 
-// const htmlToPdf = async (htmlContent) => {
-//     const browser = await puppeteer.launch();
-//     const page = await browser.newPage();
-//     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-
-//     // Set the margins for the PDF
-//     const pdfBuffer = await page.pdf({
-//         format: 'A4',
-//         margin: {
-//             top: '25mm',
-//             right: '25mm',
-//             bottom: '25mm',
-//             left: '25mm'
-//         }
-//     });
-
-//     await browser.close();
-//     return pdfBuffer;
-// };
-
-
 const htmlToPdf = async (htmlContent) => {
-    const browser = await puppeteer.launch({
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
-        // userDataDir: process.env.PUPPETEER_CACHE_DIR || '/path/to/your/cache',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
+    const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.goto('https://developer.chrome.com/');
 
+    // Set the margins for the PDF
     const pdfBuffer = await page.pdf({
         format: 'A4',
         margin: {
@@ -109,8 +85,6 @@ const htmlToPdf = async (htmlContent) => {
     await browser.close();
     return pdfBuffer;
 };
-
-
 
 
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
