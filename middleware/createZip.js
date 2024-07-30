@@ -65,32 +65,65 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 
+// const htmlToPdf = async (htmlContent) => {
+//     const browser = await puppeteer.launch();
+//     const page = await browser.newPage();
+//     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+//     // Set the margins for the PDF
+//     const pdfBuffer = await page.pdf({
+//         format: 'A4',
+//         margin: {
+//             top: '25mm',
+//             right: '25mm',
+//             bottom: '25mm',
+//             left: '25mm'
+//         }
+//     });
+
+//     await browser.close();
+//     return pdfBuffer;
+// };
+
+
+
+const getChromePath = async () => {
+    const chromeLauncher = await import('chrome-launcher');
+    const installations = await chromeLauncher.Launcher.getInstallations();
+    if (installations.length > 0) {
+        return installations[0]; // Return the first found path
+    }
+    throw new Error('No Chrome/Chromium installations found.');
+};
+
 const htmlToPdf = async (htmlContent) => {
-    // const browser = await puppeteer.launch();
+    try {
+        const chromePath = await getChromePath();
+        console.log(chromePath)
+        const browser = await puppeteer.launch({
+            executablePath: chromePath,
+            headless: true
+        });
 
-    const browser = await puppeteer.launch({
-        // Uncomment and set this if you have a specific path for Chrome/Chromium
-        // executablePath: 'C:\\Path\\To\\Your\\Chrome\\chrome.exe',
-        headless: true // Ensure Puppeteer runs in headless mode
-    });
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
-    // await page.goto('https://developer.chrome.com/');
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            margin: {
+                top: '25mm',
+                right: '25mm',
+                bottom: '25mm',
+                left: '25mm'
+            }
+        });
 
-    // Set the margins for the PDF
-    const pdfBuffer = await page.pdf({
-        format: 'A4',
-        margin: {
-            top: '25mm',
-            right: '25mm',
-            bottom: '25mm',
-            left: '25mm'
-        }
-    });
-
-    await browser.close();
-    return pdfBuffer;
+        await browser.close();
+        return pdfBuffer;
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        throw error;
+    }
 };
 
 
