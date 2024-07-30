@@ -69,7 +69,7 @@ const htmlToPdf = async (htmlContent) => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    await page.goto('https://developer.chrome.com/');
+    // await page.goto('https://developer.chrome.com/');
 
     // Set the margins for the PDF
     const pdfBuffer = await page.pdf({
