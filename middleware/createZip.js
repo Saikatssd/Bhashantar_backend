@@ -66,9 +66,16 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 const htmlToPdf = async (htmlContent) => {
-    const browser = await puppeteer.launch();
+    // const browser = await puppeteer.launch();
+
+    const browser = await puppeteer.launch({
+        // Uncomment and set this if you have a specific path for Chrome/Chromium
+        // executablePath: 'C:\\Path\\To\\Your\\Chrome\\chrome.exe',
+        headless: true // Ensure Puppeteer runs in headless mode
+    });
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
     // await page.goto('https://developer.chrome.com/');
 
     // Set the margins for the PDF
