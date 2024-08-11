@@ -66,7 +66,7 @@ router.get('/:projectId/:documentId/downloadDocx', async (req, res, next) => {
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${name.replace('.pdf', '')}.zip"`);
 
-        const archive = archiver('zip', { zlib: { level: 9 } });
+        const archive = archiver('zip', { zlib: { level: 0 } });
         archive.on('error', (err) => { throw err; });
         archive.pipe(res);
 
@@ -94,7 +94,7 @@ router.get('/:projectId/:documentId/downloadPdf', async (req, res, next) => {
         res.setHeader('Content-Disposition', `attachment; filename="${name.replace('.pdf', '')}.zip"`);
 
         
-        const archive = archiver('zip', { zlib: { level: 9 } });
+        const archive = archiver('zip', { zlib: { level: 1 } });
         archive.on('error', (err) => { throw err; });
         archive.pipe(res);
 

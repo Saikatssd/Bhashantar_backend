@@ -8,9 +8,12 @@ const projectRoutes = require('./routes/project');
 const companyRoutes = require('./routes/company');
 const documentRoutes = require('./routes/document');
 const permissionRoutes = require('./routes/permission');
+const path = require('path');
 
 const app = express();
 
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 // Middleware
 app.use(express.json());
 
@@ -23,6 +26,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
 
 // Handle OPTIONS requests for CORS preflight checks
 app.options('*', cors(corsOptions), (req, res) => {
