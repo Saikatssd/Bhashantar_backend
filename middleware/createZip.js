@@ -182,26 +182,34 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 
+// const getChromePath = async () => {
+//   const chromeLauncher = await import('chrome-launcher');
+//   const installations = await chromeLauncher.Launcher.getInstallations();
+
+
+//   // chromeLauncher.Launcher.getInstallations().then(installations => {
+//   //   console.log('Chrome/Chromium installations:', installations);
+//   // }).catch(err => {
+//   //   console.error('Error finding Chromium installations:', err);
+//   // });
+
+// };
+
 const getChromePath = async () => {
   const chromeLauncher = await import('chrome-launcher');
-  // const installations = await chromeLauncher.Launcher.getInstallations();
-
-
-  chromeLauncher.Launcher.getInstallations().then(installations => {
-    console.log('Chrome/Chromium installations:', installations);
-  }).catch(err => {
-    console.error('Error finding Chromium installations:', err);
-  });
-
+  const installations = await chromeLauncher.Launcher.getInstallations();
+  console.log('Chrome/Chromium installations:', installations);
+  return installations[0]; // Assuming you want the first installation
 };
+
 
 
 const htmlToPdf = async (htmlContent) => {
   try {
     const chromePath = await getChromePath();
-    // console.log(chromePath)
+    console.log(chromePath)
     const browser = await puppeteer.launch({
-      executablePath: chromePath || undefined,
+      executablePath: chromePath || '/usr/bin/chromium-browser',
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
