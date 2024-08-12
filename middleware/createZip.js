@@ -201,7 +201,7 @@ const htmlToPdf = async (htmlContent) => {
     const chromePath = await getChromePath();
     // console.log(chromePath)
     const browser = await puppeteer.launch({
-      // executablePath: chromePath,
+      executablePath: chromePath || undefined,
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
