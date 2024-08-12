@@ -8,50 +8,50 @@ const htmlToDocx = require('html-to-docx')
 
 // Fetch and convert document to specified file type
 const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileType) => {
-    const documentRef = db.collection('projects').doc(projectId).collection('files').doc(documentId);
-    const doc = await documentRef.get();
+  const documentRef = db.collection('projects').doc(projectId).collection('files').doc(documentId);
+  const doc = await documentRef.get();
 
-    if (!doc.exists) {
-        throw new ErrorHandler("Document Not Found", 404);
-    }
+  if (!doc.exists) {
+    throw new ErrorHandler("Document Not Found", 404);
+  }
 
-    const { htmlUrl, pdfUrl, name } = doc.data();
-    const htmlResponse = await axios.get(htmlUrl);
-    let htmlContent = htmlResponse.data;
+  const { htmlUrl, pdfUrl, name } = doc.data();
+  const htmlResponse = await axios.get(htmlUrl);
+  let htmlContent = htmlResponse.data;
 
-    if (!htmlContent) {
-        throw new ErrorHandler("HTML content is empty or undefined", 500);
-    }
+  if (!htmlContent) {
+    throw new ErrorHandler("HTML content is empty or undefined", 500);
+  }
 
-    htmlContent = htmlContent.replace(/<!-- my page break -->/g, '<div style="page-break-after: always;"></div>');
+  htmlContent = htmlContent.replace(/<!-- my page break -->/g, '<div style="page-break-after: always;"></div>');
 
-    let convertedFileBuffer;
-    let convertedFileName;
+  let convertedFileBuffer;
+  let convertedFileName;
 
-    if (convertToFileType === 'pdf') {
-        convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
+  if (convertToFileType === 'pdf') {
+    convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
 
-        convertedFileBuffer = await htmlToPdf(htmlContent);
-    } else if (convertToFileType === 'docx') {
-        const options = {
-            table: { row: { cantSplit: true } },
-            headingStyles: true,
-            paragraphStyles: {
-                spacing: {
-                    after: 120,
-                    line: 240,
-                },
-            },
-            defaultParagraphSeparator: "p",
-            font: "Nirmala UI",
-            fontSize: 12,
-            bold: true,
-            italic: true,
-            underline: true,
-        };
+    convertedFileBuffer = await htmlToPdf(htmlContent);
+  } else if (convertToFileType === 'docx') {
+    const options = {
+      table: { row: { cantSplit: true } },
+      headingStyles: true,
+      paragraphStyles: {
+        spacing: {
+          after: 120,
+          line: 240,
+        },
+      },
+      defaultParagraphSeparator: "p",
+      font: "Nirmala UI",
+      fontSize: 12,
+      bold: true,
+      italic: true,
+      underline: true,
+    };
 
-        // Inject Nirmala UI font style directly into the HTML content
-        const styledHtmlContent = `
+    // Inject Nirmala UI font style directly into the HTML content
+    const styledHtmlContent = `
             <html>
               <head>
                 <style>
@@ -79,15 +79,15 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
             </html>
         `;
 
-        convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(err => {
-            throw new ErrorHandler("Error during HTML to DOCX conversion: " + err.message, 500);
-        });
-        convertedFileName = `${name.replace('.pdf', '')}Translation.docx`;
-    } else {
-        throw new ErrorHandler("Invalid file type requested", 400);
-    }
+    convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(err => {
+      throw new ErrorHandler("Error during HTML to DOCX conversion: " + err.message, 500);
+    });
+    convertedFileName = `${name.replace('.pdf', '')}Translation.docx`;
+  } else {
+    throw new ErrorHandler("Invalid file type requested", 400);
+  }
 
-    return { convertedFileBuffer, convertedFileName, pdfUrl, name };
+  return { convertedFileBuffer, convertedFileName, pdfUrl, name };
 };
 
 // const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileType) => {
@@ -183,27 +183,32 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 const getChromePath = async () => {
-    const chromeLauncher = await import('chrome-launcher');
-    const installations = await chromeLauncher.Launcher.getInstallations();
-    if (installations.length > 0) {
-        return installations[0]; // Return the first found path
-    }
-    throw new Error('No Chrome/Chromium installations found.');
+  const chromeLauncher = await import('chrome-launcher');
+  // const installations = await chromeLauncher.Launcher.getInstallations();
+
+
+  chromeLauncher.Launcher.getInstallations().then(installations => {
+    console.log('Chrome/Chromium installations:', installations);
+  }).catch(err => {
+    console.error('Error finding Chromium installations:', err);
+  });
+
 };
 
-const htmlToPdf = async (htmlContent) => {
-    try {
-        const chromePath = await getChromePath();
-        // console.log(chromePath)
-        const browser = await puppeteer.launch({
-            // executablePath: chromePath,
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
 
-        const page = await browser.newPage();
-        // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-        await page.setContent(`
+const htmlToPdf = async (htmlContent) => {
+  try {
+    const chromePath = await getChromePath();
+    // console.log(chromePath)
+    const browser = await puppeteer.launch({
+      // executablePath: chromePath,
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    const page = await browser.newPage();
+    // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(`
             <html>
               <head>
                 <style>
@@ -227,35 +232,35 @@ const htmlToPdf = async (htmlContent) => {
             </html>
           `, { waitUntil: 'networkidle0' });
 
-        // const pdfBuffer = await page.pdf({
-        //     format: 'A4',
-        //     margin: {
-        //         top: '25mm',
-        //         right: '25mm',
-        //         bottom: '25mm',
-        //         left: '25mm'
-        //     }
-        // });
+    // const pdfBuffer = await page.pdf({
+    //     format: 'A4',
+    //     margin: {
+    //         top: '25mm',
+    //         right: '25mm',
+    //         bottom: '25mm',
+    //         left: '25mm'
+    //     }
+    // });
 
 
-        const pdfBuffer = await page.pdf({
-            // width: '8.5in',    // Width for Legal size
-            // height: '14in',    // Height for Legal size
-            format: 'Legal',
-            margin: {
-                top: '25mm',
-                right: '25mm',
-                bottom: '25mm',
-                left: '25mm'
-            }
-        });
+    const pdfBuffer = await page.pdf({
+      // width: '8.5in',    // Width for Legal size
+      // height: '14in',    // Height for Legal size
+      format: 'Legal',
+      margin: {
+        top: '25mm',
+        right: '25mm',
+        bottom: '25mm',
+        left: '25mm'
+      }
+    });
 
-        await browser.close();
-        return pdfBuffer;
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-        throw error;
-    }
+    await browser.close();
+    return pdfBuffer;
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw error;
+  }
 };
 
 
