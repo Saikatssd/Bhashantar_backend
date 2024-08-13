@@ -94,6 +94,7 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 const htmlToPdf = async (htmlContent) => {
   try {
     const browser = await puppeteer.launch({
+      executablePath: puppeteer.executablePath(), 
       headless: true,
       args: [
         '--no-sandbox',
