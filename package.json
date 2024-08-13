@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js",
     "dev": "SET NODE_ENV=DEVELOPMENT& nodemon index",
-    "postinstall": "puppeteer install"
+   "postinstall": "echo $(which chromium-browser); npx puppeteer install"
+
   },
   "keywords": [],
   "author": "",
