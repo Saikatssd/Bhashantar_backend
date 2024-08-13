@@ -6,8 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js",
     "dev": "SET NODE_ENV=DEVELOPMENT& nodemon index",
-    "install": "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false npm install",
-    "build": "apt-get update && apt-get install -y chromium-browser"
+    "postinstall": "puppeteer install"
   },
   "keywords": [],
   "author": "",

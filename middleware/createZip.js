@@ -211,7 +211,14 @@ const htmlToPdf = async (htmlContent) => {
     const browser = await puppeteer.launch({
       executablePath: chromePath || '/usr/bin/chromium-browser',
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1280x1024'
+      ]
     });
 
     const page = await browser.newPage();
@@ -239,16 +246,6 @@ const htmlToPdf = async (htmlContent) => {
               <body>${htmlContent}</body>
             </html>
           `, { waitUntil: 'networkidle0' });
-
-    // const pdfBuffer = await page.pdf({
-    //     format: 'A4',
-    //     margin: {
-    //         top: '25mm',
-    //         right: '25mm',
-    //         bottom: '25mm',
-    //         left: '25mm'
-    //     }
-    // });
 
 
     const pdfBuffer = await page.pdf({
