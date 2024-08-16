@@ -99,6 +99,8 @@ const htmlToPdf = async (htmlContent) => {
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
+    console.log(`Chrome path: ${await browser.version()}`);
+
     const page = await browser.newPage();
     // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
     await page.setContent(`
@@ -108,7 +110,6 @@ const htmlToPdf = async (htmlContent) => {
                  
                  body{
                     line-height: 1.5;
-
                  }
                   
                   p {
