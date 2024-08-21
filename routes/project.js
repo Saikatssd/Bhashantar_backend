@@ -114,17 +114,25 @@ router.get('/:companyId/getProjects', async (req, res, next) => {
 //delete project
 router.delete('/deleteProject', async (req, res, next) => {
     const { id } = req.body;
+    // console.log("Received ID:", id)
+
     try {
-        const project = await db.collection('project').doc(id).get();
+        const docRef = db.collection('projects').doc(id);
+        // console.log("Document Reference Path:", docRef.path);
+
+        const project = await docRef.get();
+        // console.log("Project Exists:", project.exists);
+
         if (!project.exists) {
-            return next(new ErrorHandler('project not found', 404));
+            return next(new ErrorHandler('Project not found', 404));
         }
 
-        await db.collection('project').doc(id).delete();
+        await docRef.delete();
         res.status(200).send('Project deleted successfully');
     } catch (error) {
         next(new ErrorHandler('Error deleting Project: ' + error.message, 500));
     }
 });
+
 
 module.exports = router;
