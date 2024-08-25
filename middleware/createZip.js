@@ -48,6 +48,18 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
       bold: true,
       italic: true,
       underline: true,
+      page: {
+        size: {
+          width: 12240,  // 8.5 inches in Twips (1 inch = 1440 Twips)
+          height: 20160, // 14 inches in Twips
+        },
+        margin: {
+          top: 1440,   // 1 inch margin (1440 Twips)
+          right: 1440,
+          bottom: 1440,
+          left: 1440,
+        },
+      },
     };
 
     // Inject Nirmala UI font style directly into the HTML content
