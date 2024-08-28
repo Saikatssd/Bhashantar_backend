@@ -22,14 +22,21 @@ router.post('/createProject', async (req, res, next) => {
             return next(new ErrorHandler("Company Not Found", 400));
         }
 
-        // Check if the project name already exists within the same company
+        // Normalize the name to lowercase for case-insensitive comparison
+        const normalizedName = name.trim().toLowerCase();
+
+        // Fetch all projects in the company
         const projectsRef = db.collection('projects');
         const projectQuery = await projectsRef
             .where('companyId', '==', companyId)
-            .where('name', '==', name.trim())
             .get();
 
-        if (!projectQuery.empty) {
+        // Check for a case-insensitive name match
+        const nameExists = projectQuery.docs.some(doc => 
+            doc.data().name.trim().toLowerCase() === normalizedName
+        );
+
+        if (nameExists) {
             return next(new ErrorHandler("Project name already exists", 400));
         }
 
@@ -70,14 +77,21 @@ router.put('/editProject', async (req, res, next) => {
 
         const { companyId } = projectSnapshot.data();
 
-        // Check if the new project name already exists within the same company
+        // Normalize the new name to lowercase for case-insensitive comparison
+        const normalizedNewName = newName.trim().toLowerCase();
+
+        // Fetch all projects in the company except the current project
         const projectsRef = db.collection('projects');
         const projectQuery = await projectsRef
             .where('companyId', '==', companyId)
-            .where('name', '==', newName.trim())
             .get();
 
-        if (!projectQuery.empty) {
+        // Check for a case-insensitive name match within the same company, excluding the current project
+        const nameExists = projectQuery.docs.some(doc => 
+            doc.id !== id && doc.data().name.trim().toLowerCase() === normalizedNewName
+        );
+
+        if (nameExists) {
             return next(new ErrorHandler("Project name already exists", 400));
         }
 
@@ -91,6 +105,7 @@ router.put('/editProject', async (req, res, next) => {
         next(new ErrorHandler('Error editing Project: ' + error.message, 500));
     }
 });
+
 
 
 // Endpoint to fetch projects for a company
