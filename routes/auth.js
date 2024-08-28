@@ -6,6 +6,7 @@ const ErrorHandler = require('../utils/errorHandler');
 const verifyToken = require('../middleware/verifyToken');
 
 
+
 // router.post('/createUser', async (req, res, next) => {
 //   const { name, email, password, phoneNo, roleId, companyId } = req.body;
 
@@ -50,7 +51,7 @@ const verifyToken = require('../middleware/verifyToken');
 //       phoneNo,
 //       roleId,
 //       companyId,
-//       isActive: true,
+//    
 //       createdAt: new Date(),
 //     });
 //     const userDoc = await db.collection('users').doc(userRecord.uid).get();
@@ -115,7 +116,6 @@ router.post('/createUser', async (req, res, next) => {
       phoneNo,
       roleId,
       companyId,
-      isActive: true,
       createdAt: new Date(),
     });
 
@@ -155,7 +155,7 @@ router.post('/registerSuperAdmin', async (req, res, next) => {
       phoneNo: phoneNo,
       roleId: roleId,
       companyId: null,
-      isActive: true,
+   
       createdAt: new Date(),
     });
 
@@ -252,20 +252,30 @@ router.get('/getUserProfile', verifyToken, async (req, res, next) => {
 
 
 // Disable a user
-router.post('/disableUser', async (req, res, next) => {
+
+
+router.post('/disableUser', async (req, res) => {
   const { userId } = req.body;
 
   try {
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    if (!userDoc.exists) {
-      return next(new ErrorHandler('User not found', 404));
-    }
-
-    await userRef.update({ disabled: true });
-    res.status(200).send('User disabled successfully');
+    await auth().updateUser(userId, { disabled: true });
+    res.status(200).send({ message: 'User disabled successfully' });
   } catch (error) {
-    next(new ErrorHandler('Error disabling user: ' + error.message, 500));
+    console.error('Error disabling user:', error);
+    return next(new ErrorHandler("Failed to disable user", 500));
+  }
+});
+
+// Endpoint to enable a user
+router.post('/enableUser', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    await admin.auth().updateUser(userId, { disabled: false });
+    res.status(200).send({ message: 'User enabled successfully' });
+  } catch (error) {
+    console.error('Error enabling user:', error);
+    res.status(500).send({ error: 'Failed to enable user' });
   }
 });
 
