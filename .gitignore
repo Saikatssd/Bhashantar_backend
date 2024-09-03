@@ -7,7 +7,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+bhasantar-ui-and-llm-key.json
+cors.json
 node_modules
 dist
 dist-ssr

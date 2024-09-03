@@ -9,6 +9,7 @@ const companyRoutes = require('./routes/company');
 const documentRoutes = require('./routes/document');
 const permissionRoutes = require('./routes/permission');
 const path = require('path');
+const { Storage } = require('@google-cloud/storage');
 
 const app = express();
 
@@ -42,6 +43,37 @@ app.use('/api/document', documentRoutes);
 app.use('/api/permission', permissionRoutes);
 
 app.use(errorMiddleware);
+
+const storage = new Storage({
+  keyFilename: '/Users/dd/Developer/Bhashantar_backend/bhasantar-ui-and-llm-key.json', // Update this path
+  projectId: 'bhasantar-ui-and-llm', // Replace with your project ID
+});
+const bucketName = 'bhasantar';
+
+
+// Endpoint to generate a signed URL
+app.post('/generateSignedUrl', async (req, res) => {
+  try {
+    const { projectId, fileName } = req.body;
+    const options = {
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      contentType: 'application/pdf', // Set the content type according to your file type
+    };
+
+    // Get a signed URL for file upload
+    const [url] = await storage
+      .bucket(bucketName)
+      .file(`projects/${projectId}/${fileName}`)
+      .getSignedUrl(options);
+
+    res.status(200).json({ signedUrl: url });
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    res.status(500).send('Error generating signed URL');
+  }
+});
 
 app.get('/', (req, res) => {
   res.send('Welcome to the Company and Project Management API');
