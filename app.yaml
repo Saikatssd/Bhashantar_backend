@@ -1,10 +1,10 @@
 runtime: nodejs18
-entrypoint: node index.js
+entrypoint: npm start
 
 env: standard
 
 env_variables:
-
+  NODE_ENV: production
   GOOGLE_APPLICATION_CREDENTIALS: 'bhasantar-ui-and-llm-key.json'  # Path to your key file
   GCP_PROJECT_ID: 'bhasantar-ui-and-llm'  # Your Google Cloud project ID
   GCS_BUCKET_NAME: 'bhasantar'  # Your Cloud Storage bucket name
@@ -19,7 +19,7 @@ env_variables:
   FIREBASE_TOKEN_URI: https://oauth2.googleapis.com/token
   FIREBASE_AUTH_PROVIDER_CERT_URL: https://www.googleapis.com/oauth2/v1/certs
   FIREBASE_CLIENT_CERT_URL: https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
-  PORT: 5566
+  PORT: 8080
   FRONTEND_URL: http://localhost:5173
   PUPPETEER_EXECUTABLE_PATH: "C:\\"
 
