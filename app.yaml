@@ -1,0 +1,28 @@
+runtime: nodejs18
+entrypoint: node index.js
+
+env: standard
+
+env_variables:
+
+  GOOGLE_APPLICATION_CREDENTIALS: 'bhasantar-ui-and-llm-key.json'  # Path to your key file
+  GCP_PROJECT_ID: 'bhasantar-ui-and-llm'  # Your Google Cloud project ID
+  GCS_BUCKET_NAME: 'bhasantar'  # Your Cloud Storage bucket name
+
+  FIREBASE_TYPE: service_account
+  FIREBASE_PROJECT_ID: kyrotics
+  FIREBASE_PRIVATE_KEY_ID: fc0a00e434c6d42c9825247d565db49a729408b9
+  FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDUqJmgNnJ44L8k\nYQpFN/qc4gjIjdGPnpthEcQSbFBpraUS+K3PYJwg5UGHpb6QC6u7ZFZFEiV8H2P/\noiP+RBrDfIRuITJx0UkNlPwEJ5zM4k63i+IHYQQTF3xJw596xZKpD8E7yCIA/RlL\naBhUCRQoEWjREU6DREORuNclt0Hu6YWaI1VRod/pcmf2lsptY+MkZSw331kjRI10\n80F6JgPiSPohxHKcaGUSeSuxEjvUvXIiVtygx3HAlj4JtHT+xuoQ2e6DKP5gy8vb\nBJ2IC+CGrUz0U9xo1ldW/sGn+ht7dKaE2pjU1iGVMJdArQ+WUdgaF0vMcPgwodlr\nEktzvj+HAgMBAAECggEAJaYFsKYDBSBw5o1hhpie/zhLKspkv+LqCjjdeA+B+vuZ\nfm7VQqINcgt0WwH+Zz0RtbbRSSApz7w09XRsn97JyDMatO6eoiTVpJhsN4YVzfYA\nzqDurrS/xmuBfwOpj9A7oz+dS6qmTnuAh2eR6wrCbUeLwXupZTboKXvKZyx2+Uc+\nz5kWHZtwPgLKQms476dwTnLbt4GRprhqdcx5yYdpc35fuHikmhH0eVBlwSY1tEij\nVqohp7ETbySPOgxfWU2FsH25X4aqALuFNl2E+eF+3nVFhqyQYDhBZ3pdMIhrpzLX\nzEqjWlHHWNQYgM5iZhvrlnAkzkoqS2OtMoUjp/PThQKBgQDwS4aW6XTScW0V5jJI\nIc6wuIUO4T17Lxk/9T0wIzffTeMVi6pX7WP8oi3eXCollJW+LJTyql8AvmDGGhb7\nxi8QMHAdXJ0IrCssnCVQimX0lJuxElReP+upk2oZ63lR8DWO/mp5VeeyT52NM4yJ\nmMdsVgX7h384FWK96XkTGsF3GwKBgQDijq2QIk739+d72VqVUTvnaqWyKhyHjhOa\nDpQQnIFd5L+q3qnDP+Dn2oDIwgD9Vxr4HuWYgV/SlTCSuDWvjOGcpexL9Fa6r6Px\npZvxNLXCHORuy7ji4G7RjtoyqnlkRD5w6lL2RRCp4gtChAiXGfD7awW8ST9cAszN\nSMaXXXeEBQKBgQDmoUaTT4yNcsolS6SU8MXFfcRPjMWKlqDgbwuESTkV/VZn1n3v\nGGxwDGSD1+en3B2Awp9O7VBzkUWmvWGz0vpWynbA56PcsApcLZ3u2HaUsZFg+Vu6\nfhU807zxFb2CdE+jZ/JfdKEF1j48SO6pHdbB1yq0yM7E0FnONui6+mIXYwKBgQDg\no4QpBDu015QpUyzkHTX+kdpVvDepmRCKkqXxip0jUmtRq5I8TRxeCGPlq6d7i2Ds\nYQZanv06Oj99WzWwKUqTHlocPdu5I+q08fabxh3qqOc/jLR4EP0QwEpOLoZLCve2\n0kEMexK4v69WdsBlwo0VXdrEBQTT4NrdOanf8AdPWQKBgAJQaTPLatu1mOCQZac8\nmp2nyxl0JhfX5bMg2P0PWlr/YpUjYj92siexGr2mmbvtbrsgwUgX28cbIgkpu9ki\nd7pVaHIsHfjyYywss3ZRPIWrbswaN/EjC+vyAaa/YWHYlQPDac3faGP4Brqoghyt\npxDlWNLc0lxZfXbMYxD+7U8n\n-----END PRIVATE KEY-----\n"
+  FIREBASE_CLIENT_EMAIL: firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
+  FIREBASE_CLIENT_ID: 102971239495613263983
+  FIREBASE_AUTH_URI: https://accounts.google.com/o/oauth2/auth
+  FIREBASE_TOKEN_URI: https://oauth2.googleapis.com/token
+  FIREBASE_AUTH_PROVIDER_CERT_URL: https://www.googleapis.com/oauth2/v1/certs
+  FIREBASE_CLIENT_CERT_URL: https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
+  PORT: 5566
+  FRONTEND_URL: http://localhost:5173
+  PUPPETEER_EXECUTABLE_PATH: "C:\\"
+
+handlers:
+  - url: /.*
+    script: auto

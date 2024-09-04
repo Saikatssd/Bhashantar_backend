@@ -45,10 +45,11 @@ app.use('/api/permission', permissionRoutes);
 app.use(errorMiddleware);
 
 const storage = new Storage({
-  keyFilename: '/Users/dd/Developer/Bhashantar_backend/bhasantar-ui-and-llm-key.json', // Update this path
-  projectId: 'bhasantar-ui-and-llm', // Replace with your project ID
+  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  projectId: process.env.GCP_PROJECT_ID,
 });
-const bucketName = 'bhasantar';
+const bucketName = process.env.GCS_BUCKET_NAME;
+// console.log(bucketName)
 
 
 // Endpoint to generate a signed URL
@@ -79,7 +80,7 @@ app.get('/', (req, res) => {
   res.send('Welcome to the Company and Project Management API');
 });
 
-const PORT = process.env.PORT || 5566;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
