@@ -7,6 +7,28 @@ const archiver = require('archiver');
 const { fetchDocumentAndCreateZip } = require('../middleware/createZip')
 
 
+const { Storage } = require('@google-cloud/storage');
+
+
+
+const storage = new Storage();
+const bucketName = 'bhasantar';
+
+router.delete('/deleteFile', async (req, res) => {
+    const { projectId, fileName } = req.body;
+
+    try {
+        const fileRef = storage.bucket(bucketName).file(`projects/${projectId}/${fileName}`);
+        await fileRef.delete();
+
+        return res.status(200).json({ message: 'File deleted successfully' });
+    } catch (error) {
+        console.error("Error deleting file:", error);
+        return res.status(500).json({ error: 'Error deleting file' });
+    }
+});
+
+
 
 // Route to get all documents for a specific project (company)
 router.get('/:projectId/getDocuments', async (req, res) => {
@@ -19,7 +41,7 @@ router.get('/:projectId/getDocuments', async (req, res) => {
 
         if (snapshot.empty) {
             return next(new ErrorHandler("No documents found for this project.", 404));
-           
+
         }
 
         // Extract document data
@@ -93,7 +115,7 @@ router.get('/:projectId/:documentId/downloadPdf', async (req, res, next) => {
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${name.replace('.pdf', '')}.zip"`);
 
-        
+
         const archive = archiver('zip', { zlib: { level: 1 } });
         archive.on('error', (err) => { throw err; });
         archive.pipe(res);
