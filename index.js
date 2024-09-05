@@ -53,17 +53,39 @@ const bucketName = process.env.GCS_BUCKET_NAME;
 
 
 // Endpoint to generate a signed URL
+// app.post('/generateSignedUrl', async (req, res) => {
+//   try {
+//     const { projectId, fileName } = req.body;
+//     const options = {
+//       version: 'v4',
+//       action: 'write',
+//       expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+//       contentType: 'application/pdf', // Set the content type according to your file type
+//     };
+
+//     // Get a signed URL for file upload
+//     const [url] = await storage
+//       .bucket(bucketName)
+//       .file(`projects/${projectId}/${fileName}`)
+//       .getSignedUrl(options);
+
+//     res.status(200).json({ signedUrl: url });
+//   } catch (error) {
+//     console.error('Error generating signed URL:', error);
+//     res.status(500).send('Error generating signed URL');
+//   }
+// });
 app.post('/generateSignedUrl', async (req, res) => {
   try {
-    const { projectId, fileName } = req.body;
+    const { projectId, fileName, action = 'write' } = req.body;
     const options = {
       version: 'v4',
-      action: 'write',
-      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-      contentType: 'application/pdf', // Set the content type according to your file type
+      action: action, // 'write' for upload, 'read' for download
+      expires: Date.now() + 60 * 60 * 1000 * 24, 
+      contentType: action === 'write' ? 'application/pdf' : undefined, // Set the content type for upload action
     };
 
-    // Get a signed URL for file upload
+    // Get a signed URL for file upload or download
     const [url] = await storage
       .bucket(bucketName)
       .file(`projects/${projectId}/${fileName}`)
@@ -75,6 +97,7 @@ app.post('/generateSignedUrl', async (req, res) => {
     res.status(500).send('Error generating signed URL');
   }
 });
+
 
 app.get('/', (req, res) => {
   res.send('Welcome to the Company and Project Management API');
