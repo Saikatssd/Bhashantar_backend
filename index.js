@@ -77,27 +77,28 @@ app.post('/generateSignedUrl', async (req, res) => {
   }
 });
 
-app.post('/generateSignedReadUrl', async (req, res) => {
-  try {
-    const { filePath } = req.body; // Get the file path from the request body
+// app.post('/generateSignedReadUrl', async (req, res) => {
+//   try {
+//     const { filePath } = req.body; // Get the file path from the request body
+    
 
-    if (!filePath) {
-      return res.status(400).json({ error: 'File path is required' });
-    }
+//     if (!filePath) {
+//       return res.status(400).json({ error: 'File path is required' });
+//     }
 
-    // Generate a signed URL for reading the file
-    const [signedUrl] = await storage.bucket(bucketName).file(filePath).getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + 12 * 60 * 60 * 1000, // URL expires in 15 minutes
-    });
+//     // Generate a signed URL for reading the file
+//     const [signedUrl] = await storage.bucket(bucketName).file(filePath).getSignedUrl({
+//       version: 'v4',
+//       action: 'read',
+//       expires: Date.now() + 12 * 60 * 60 * 1000, // URL expires in 15 minutes
+//     });
 
-    res.json({ signedUrl });
-  } catch (error) {
-    console.error('Error generating signed URL:', error);
-    res.status(500).json({ error: 'Error generating signed URL' });
-  }
-});
+//     res.json({ signedUrl });
+//   } catch (error) {
+//     console.error('Error generating signed URL:', error);
+//     res.status(500).json({ error: 'Error generating signed URL' });
+//   }
+// });
 
 
 
@@ -124,6 +125,40 @@ app.post('/generateSignedReadUrl', async (req, res) => {
 //     res.status(500).send('Error generating signed URL');
 //   }
 // });
+app.post('/generateReadSignedUrl', async (req, res) => {
+  const { projectId, fileName, fileType } = req.body; // Include fileType in the request body
+
+  try {
+    // Determine the correct content type based on the fileType
+    let contentType = '';
+    if (fileType === 'pdf') {
+      contentType = 'application/pdf';
+    } else if (fileType === 'html') {
+      contentType = 'text/html';
+    } else {
+      return res.status(400).json({ error: 'Unsupported file type' });
+    }
+    const action = contentType === 'text/html' ? 'read' : 'read';
+
+    // Append the correct extension based on the fileType
+    const filePath = `projects/${projectId}/${fileName}.${fileType}`;
+    const options = {
+      version: 'v4',
+      action: action, // Use 'read' for downloading
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes expiration
+    };
+
+    const [signedUrl] = await storage
+      .bucket(bucketName)
+      .file(filePath)
+      .getSignedUrl(options);
+
+    res.json({ signedUrl, filePath });
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    res.status(500).json({ error: 'Failed to generate signed URL for reading' });
+  }
+});
 
 
 app.get('/', (req, res) => {

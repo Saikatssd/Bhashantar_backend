@@ -5,13 +5,14 @@ const ErrorHandler = require("../utils/errorHandler");
 const axios = require("axios");
 const archiver = require("archiver");
 const { fetchDocumentAndCreateZip } = require("../middleware/createZip");
-
 const { Storage } = require("@google-cloud/storage");
+const stream = require('stream');
+
 
 const storage = new Storage();
 const bucketName = "bhasantar";
 
-router.post("/deleteFile", async (req, res) => {
+router.post("/deleteFile", async (req, res, next) => {
   const { projectId, fileName } = req.body;
   if (!projectId || !fileName) {
     console.log(projectId, fileName);
@@ -153,5 +154,46 @@ router.get("/:projectId/:documentId/downloadPdf", async (req, res, next) => {
     next(error);
   }
 });
+
+router.put('/generateSignedUrlForHtmlUpdate', async (req, res) => {
+  const { projectId, fileId } = req.body;
+
+  try {
+    // Fetch the file metadata from Firestore
+    const fileDocRef = db
+      .collection("projects")
+      .doc(projectId)
+      .collection("files")
+      .doc(fileId); // Get the specific file by fileId
+    const fileDoc = await fileDocRef.get();
+
+    // Check if the document exists
+    if (!fileDoc.exists) {
+      return res.status(404).json({ error: 'File does not exist' });
+    }
+
+    // Get the file data
+    const fileData = fileDoc.data();
+    const htmlFileName = fileData.name.replace('.pdf', '.html');
+    const gcsFilePath = `projects/${projectId}/${htmlFileName}`;
+
+    const bucket = storage.bucket(bucketName);
+    const file = bucket.file(gcsFilePath);
+
+    // Generate a signed URL for the HTML file with "write" permission
+    const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes expiration
+      contentType: 'text/html', // Ensure the content type matches
+    });
+
+    res.json({ signedUrl, gcsFilePath });
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    res.status(500).json({ error: 'Failed to generate signed URL for HTML update' });
+  }
+});
+
 
 module.exports = router;
