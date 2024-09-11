@@ -6,7 +6,7 @@ const axios = require("axios");
 const archiver = require("archiver");
 const { fetchDocumentAndCreateZip } = require("../middleware/createZip");
 const { Storage } = require("@google-cloud/storage");
-const stream = require('stream');
+
 
 
 const storage = new Storage();
@@ -15,10 +15,10 @@ const bucketName = "bhasantar";
 router.post("/deleteFile", async (req, res, next) => {
   const { projectId, fileName } = req.body;
   if (!projectId || !fileName) {
-    console.log(projectId, fileName);
+    // console.log(projectId, fileName);
     return next(new ErrorHandler("No documents found for this project.", 404));
   }
-  console.log(projectId, fileName);
+  // console.log(projectId, fileName);
 
   try {
     const fileRef = storage
@@ -91,69 +91,160 @@ router.get("/:projectId/documentInfo/:documentId", async (req, res) => {
   }
 });
 
+// router.get("/:projectId/:documentId/downloadDocx", async (req, res, next) => {
+//   const { projectId, documentId } = req.params;
+
+//   try {
+//     const { convertedFileBuffer, convertedFileName, pdfUrl, name } =
+//       await fetchDocumentAndCreateZip(projectId, documentId, "docx");
+
+//     res.setHeader("Content-Type", "application/zip");
+//     res.setHeader(
+//       "Content-Disposition",
+//       `attachment; filename="${name.replace(".pdf", "")}.zip"`
+//     );
+
+//     const archive = archiver("zip", { zlib: { level: 0 } });
+//     archive.on("error", (err) => {
+//       throw err;
+//     });
+//     archive.pipe(res);
+
+//     // Append DOCX and PDF files to the zip
+//     archive.append(convertedFileBuffer, { name: convertedFileName });
+//     const pdfResponse = await axios.get(pdfUrl, { responseType: "stream" });
+//     archive.append(pdfResponse.data, { name });
+
+//     archive.finalize();
+//   } catch (error) {
+//     console.error("Error exporting document:", error);
+//     next(error);
+//   }
+// });
+
+// Download DOCX with original PDF included in the ZIP
 router.get("/:projectId/:documentId/downloadDocx", async (req, res, next) => {
   const { projectId, documentId } = req.params;
 
   try {
-    const { convertedFileBuffer, convertedFileName, pdfUrl, name } =
+    const { convertedFileBuffer, convertedFileName, pdfFilePath, name } =
       await fetchDocumentAndCreateZip(projectId, documentId, "docx");
 
+    const bucket = storage.bucket(bucketName);
+    
+    // Generate a signed URL for the original PDF file
+    const [pdfSignedUrl] = await bucket.file(pdfFilePath).getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000 // 15 minutes expiration
+    });
+
+    // Set headers for zip download
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${name.replace(".pdf", "")}.zip"`
     );
 
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    // Create a ZIP archive
+    const archive = archiver("zip", { zlib: { level: 9 } });
     archive.on("error", (err) => {
       throw err;
     });
     archive.pipe(res);
 
-    // Append DOCX and PDF files to the zip
-    archive.append(convertedFileBuffer, { name: convertedFileName });
-    const pdfResponse = await axios.get(pdfUrl, { responseType: "stream" });
-    archive.append(pdfResponse.data, { name });
-
-    archive.finalize();
-  } catch (error) {
-    console.error("Error exporting document:", error);
-    next(error);
-  }
-});
-
-router.get("/:projectId/:documentId/downloadPdf", async (req, res, next) => {
-  const { projectId, documentId } = req.params;
-
-  try {
-    const { convertedFileBuffer, convertedFileName, pdfUrl, name } =
-      await fetchDocumentAndCreateZip(projectId, documentId, "pdf");
-
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${name.replace(".pdf", "")}.zip"`
-    );
-
-    const archive = archiver("zip", { zlib: { level: 1 } });
-    archive.on("error", (err) => {
-      throw err;
-    });
-    archive.pipe(res);
-
-    // Append the converted PDF buffer to the zip
+    // Add converted DOCX file to the zip
     archive.append(convertedFileBuffer, { name: convertedFileName });
 
-    // Fetch the original PDF and append it to the zip
-    const pdfResponse = await axios.get(pdfUrl, { responseType: "stream" });
+    // Fetch and add original PDF using the signed URL
+    const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
     archive.append(pdfResponse.data, { name });
 
     await archive.finalize();
   } catch (error) {
-    console.error("Error exporting document:", error);
+    console.error("Error exporting DOCX document:", error);
     next(error);
   }
 });
+
+// Download PDF with original PDF included in the ZIP
+router.get("/:projectId/:documentId/downloadPdf", async (req, res, next) => {
+  const { projectId, documentId } = req.params;
+
+  try {
+    const { convertedFileBuffer, convertedFileName, pdfFilePath, name } =
+      await fetchDocumentAndCreateZip(projectId, documentId, "pdf");
+
+    const bucket = storage.bucket(bucketName);
+    
+    // Generate a signed URL for the original PDF file
+    const [pdfSignedUrl] = await bucket.file(pdfFilePath).getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000 // 15 minutes expiration
+    });
+
+    // Set headers for zip download
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${name.replace(".pdf", "")}.zip"`
+    );
+
+    // Create a ZIP archive
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.on("error", (err) => {
+      throw err;
+    });
+    archive.pipe(res);
+
+    // Add converted PDF file to the zip
+    archive.append(convertedFileBuffer, { name: convertedFileName });
+
+    // Fetch and add original PDF using the signed URL
+    const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
+    archive.append(pdfResponse.data, { name });
+
+    await archive.finalize();
+  } catch (error) {
+    console.error("Error exporting PDF document:", error);
+    next(error);
+  }
+});
+
+
+// router.get("/:projectId/:documentId/downloadPdf", async (req, res, next) => {
+//   const { projectId, documentId } = req.params;
+
+//   try {
+//     const { convertedFileBuffer, convertedFileName, pdfUrl, name } =
+//       await fetchDocumentAndCreateZip(projectId, documentId, "pdf");
+
+//     res.setHeader("Content-Type", "application/zip");
+//     res.setHeader(
+//       "Content-Disposition",
+//       `attachment; filename="${name.replace(".pdf", "")}.zip"`
+//     );
+
+//     const archive = archiver("zip", { zlib: { level: 1 } });
+//     archive.on("error", (err) => {
+//       throw err;
+//     });
+//     archive.pipe(res);
+
+//     // Append the converted PDF buffer to the zip
+//     archive.append(convertedFileBuffer, { name: convertedFileName });
+
+//     // Fetch the original PDF and append it to the zip
+//     const pdfResponse = await axios.get(pdfUrl, { responseType: "stream" });
+//     archive.append(pdfResponse.data, { name });
+
+//     await archive.finalize();
+//   } catch (error) {
+//     console.error("Error exporting document:", error);
+//     next(error);
+//   }
+// });
 
 router.put('/generateSignedUrlForHtmlUpdate', async (req, res) => {
   const { projectId, fileId } = req.body;
@@ -194,6 +285,8 @@ router.put('/generateSignedUrlForHtmlUpdate', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate signed URL for HTML update' });
   }
 });
+
+
 
 
 module.exports = router;
