@@ -22,7 +22,7 @@ env_variables:
   PORT: 8080
   # FRONTEND_URL: http://localhost:5173
   FRONTEND_URL: https://bhashantar-frontend.vercel.app
-  PUPPETEER_EXECUTABLE_PATH: "C:\\"
+  # PUPPETEER_EXECUTABLE_PATH: "C:\\"
 
 handlers:
   - url: /.*
