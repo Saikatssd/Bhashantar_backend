@@ -6,9 +6,9 @@ const htmlToDocx = require('html-to-docx')
 const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
-
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
+const pdf = require('html-pdf-node');
+// const chromium = require('@sparticuz/chromium');
+// const puppeteer = require('puppeteer-core');
 
 
 
@@ -124,129 +124,120 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   return { convertedFileBuffer, convertedFileName, pdfFilePath, name };
 };
 
-
-
-const htmlToPdf = async (htmlContent) => {
-  try {
-    console.log('path',await chromium.executablePath())
-    const browser = await puppeteer.launch({
-      // executablePath: process.env.CHROMIUM_PATH || await chromium.executablePath(), // Use Chromium executable from @sparticuz/chromium
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath(), // Use Chromium executable from @sparticuz/chromium
-      headless: true, // Always set headless to true in server environments
-      args: [
-        ...chromium.args, 
-        '--no-sandbox',
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-      ],
-      defaultViewport: chromium.defaultViewport,
-    });
-
-    console.log(`Chrome version: ${await browser.version()}`);
-
-    const page = await browser.newPage();
-    await page.setContent(`
-      <html>
-        <head>
-          <style>
-             @font-face {
-                font-family: 'Nirmala UI';
-                src: url('/fonts/NirmalaUI.ttf') format('truetype');
-                font-weight: normal;
-                font-style: normal;
-            }
-            body {
-              line-height: 1.5;
-              font-family: 'Nirmala UI', sans-serif;
-            }
-            p {
-              line-height: 1.5;
-              margin: 0;
-            }
-            h1, h2, h3, h4, h5, h6 {
-              font-weight: bold;
-              margin: 0 0 10px 0;
-            }
-          </style>
-        </head>
-        <body>${htmlContent}</body>
-      </html>
-    `, { waitUntil: 'networkidle0' });
-
-    const pdfBuffer = await page.pdf({
-      format: 'Legal',
-      margin: {
-        top: '25mm',
-        right: '25mm',
-        bottom: '25mm',
-        left: '25mm'
-      }
-    });
-
-    await browser.close();
-    return pdfBuffer;
-  } catch (error) {
-    
-    console.error('Error generating PDF:', error);
-    throw error;
-  }
-};
-
 // const htmlToPdf = async (htmlContent) => {
 //   try {
+//     console.log('Starting Puppeteer...');
+//     console.log("path", await chromium.executablePath())
+
 //     const browser = await puppeteer.launch({
-//       executablePath: process.env.CHROME_BIN || puppeteer.executablePath(),
-//       headless: true,
-//       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+//       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || await chromium.executablePath(),
+//       headless: true, // Always use headless in server environments
+//       args: [
+//         ...chromium.args,
+//         '--no-sandbox',
+//         '--disable-gpu',
+//         '--disable-dev-shm-usage',
+//         '--disable-setuid-sandbox',
+//       ],
+//       defaultViewport: chromium.defaultViewport,
 //     });
 
-//     console.log(`Chrome path: ${await browser.version()}`);
+//     console.log(`Chrome version: ${await browser.version()}`);
 
 //     const page = await browser.newPage();
-//     // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+//     // Wait for the page to fully load
 //     await page.setContent(`
-//             <html>
-//               <head>
-//                 <style>
+//       <html>
+//         <head>
+//           <style>
+//              @font-face {
+//                 font-family: 'Nirmala UI';
+//                 src: url('/fonts/NirmalaUI.ttf') format('truetype');
+//                 font-weight: normal;
+//                 font-style: normal;
+//             }
+//             body {
+//               line-height: 1.5;
+//               font-family: 'Nirmala UI', sans-serif;
+//             }
+//             p {
+//               line-height: 1.5;
+//               margin: 0;
+//             }
+//             h1, h2, h3, h4, h5, h6 {
+//               font-weight: bold;
+//               margin: 0 0 10px 0;
+//             }
+//           </style>
+//         </head>
+//         <body>${htmlContent}</body>
+//       </html>
+//     `, { waitUntil: 'networkidle0' });
 
-//                  body{
-//                     line-height: 1.5;
-//                  }
-
-//                   p {
-//                     line-height: 1.5;
-//                     margin: 0;
-//                   }
-//                   h1, h2, h3, h4, h5, h6 {
-//                     font-weight: bold;
-//                     margin: 0 0 10px 0;
-//                   }
-//                 </style>
-//               </head>
-//               <body>${htmlContent}</body>
-//             </html>
-//           `, { waitUntil: 'networkidle0' });
-
-
+//     // Generate PDF
 //     const pdfBuffer = await page.pdf({
-//       // width: '8.5in',    // Width for Legal size
-//       // height: '14in',    // Height for Legal size
 //       format: 'Legal',
 //       margin: {
 //         top: '25mm',
 //         right: '25mm',
 //         bottom: '25mm',
-//         left: '25mm'
-//       }
+//         left: '25mm',
+//       },
+//       printBackground: true,  // Ensures background colors and images are included in the PDF
 //     });
 
 //     await browser.close();
 //     return pdfBuffer;
 //   } catch (error) {
-//     console.error('Error generating PDF:', error);
-//     throw error;
+//     console.error('Error generating PDF:', error.message);
+//     throw new Error('Error generating PDF: ' + error.message);
 //   }
 // };
 
+
+
+
+
+const htmlToPdf = async (htmlContent) => {
+  try {
+    const options = {
+      format: 'Legal',
+      margin: {
+        top: '25mm',
+        right: '25mm',
+        bottom: '25mm',
+        left: '25mm',
+      }
+    };
+
+    const file = { content: htmlContent };
+    const pdfBuffer = await pdf.generatePdf(file, options);
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      throw new Error('Failed to generate PDF: Empty PDF buffer');
+    }
+
+    // Return the PDF buffer
+    return pdfBuffer;
+  } catch (error) {
+    console.error('Error generating PDF:', error.message);
+    throw new ErrorHandler('Error generating PDF: ' + error.message, 500);
+  }
+  //  finally {
+  //   // Ensure proper cleanup of temp files
+  //   try {
+  //     const tempDir = 'C:\\Users\\Saikat\\AppData\\Local\\Temp\\puppeteer_dev_chrome_profile-ytgBnh\\Default';
+  //     const fs = require('fs');
+  //     if (fs.existsSync(tempDir)) {
+  //       fs.rmdirSync(tempDir, { recursive: true });
+  //       console.log('Temp directory cleaned up:', tempDir);
+  //     }
+  //   } catch (cleanupError) {
+  //     console.error('Error during temp file cleanup:', cleanupError.message);
+  //   }
+  // }
+};
+ 
 
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
