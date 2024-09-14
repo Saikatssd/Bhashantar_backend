@@ -222,6 +222,7 @@ exports.downloadPdf = async (req, res, next) => {
         // Add converted PDF file to the zip
         archive.append(convertedFileBuffer, { name: convertedFileName });
 
+
         // Fetch and add original PDF using the signed URL
         try {
             const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
@@ -233,9 +234,10 @@ exports.downloadPdf = async (req, res, next) => {
 
         // Finalize the zip
         await archive.finalize();
+        console.log("ZIP finalized and response sent");
 
     } catch (error) {
         console.error("Error exporting PDF document:", error);
-        return next(new ErrorHandler(error));
+        next(error)
     }
 };
