@@ -1,12 +1,16 @@
 
 const axios = require('axios');
-const puppeteer = require('puppeteer');
+// const path = require('path')
+// // const puppeteer = require('puppeteer');
+// const chromium = require('@sparticuz/chromium');
+// const puppeteer = require('puppeteer-core');
 const ErrorHandler = require('../utils/errorHandler')
 const { db } = require('../firebaseAdmin');
 const htmlToDocx = require('html-to-docx')
 const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
+
 
 
 
@@ -123,57 +127,86 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 };
 
 
+// const htmlToPdf = async (htmlContent) => {
+//   try {
+//     const browser = await puppeteer.launch({
+//       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ,
+//       headless: false,
+//       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+//     });
+//     // console.log(`Chrome path: ${await browser.version()}`);
+//     const page = await browser.newPage();
+//     // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+//     await page.setContent(`
+//             <html>
+//               <head>
+//                 <style>
+                 
+//                  body{
+//                     line-height: 1.5;
+//                  }
+                  
+//                   p {
+//                     line-height: 1.5;
+//                     margin: 0;
+//                   }
+//                   h1, h2, h3, h4, h5, h6 {
+//                     font-weight: bold;
+//                     margin: 0 0 10px 0;
+//                   }
+//                 </style>
+//               </head>
+//               <body>${htmlContent}</body>
+//             </html>
+//           `, { waitUntil: 'networkidle0' });
+//     const pdfBuffer = await page.pdf({
+//       // width: '8.5in',    // Width for Legal size
+//       // height: '14in',    // Height for Legal size
+//       format: 'Legal',
+//       margin: {
+//         top: '25mm',
+//         right: '25mm',
+//         bottom: '25mm',
+//         left: '25mm'
+//       }
+//     });
+//     await browser.close();
+//     return pdfBuffer;
+//   } catch (error) {
+//     console.error('Error generating PDF:', error);
+//     throw error;
+//   }
+// };
+
+
+
+const chromePdf = require('html-pdf-chrome');
+
 const htmlToPdf = async (htmlContent) => {
   try {
-    const browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(
-      `  <html>
-           <head>
-             <style>
-               body{
-                 line-height: 1.5;
-               }
-               p {
-                 line-height: 1.5;
-                 margin: 0;
-               }
-               h1, h2, h3, h4, h5, h6 {
-                 font-weight: bold;
-                 margin: 0 0 10px 0;
-               }
-             </style>
-           </head>
-           <body>${htmlContent}</body>
-         </html>`,
-      { waitUntil: 'networkidle0' }
-    );
-
-    // Add logging to track Puppeteer actions
-    console.log('Page content set. Generating PDF...');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
+    // Set options for the PDF generation
+    const options = {
+      format: 'Legal',
       margin: {
         top: '25mm',
         right: '25mm',
         bottom: '25mm',
-        left: '25mm',
+        left: '25mm'
       },
-    });
+      printOptions: {
+        displayHeaderFooter: false
+      }
+    };
 
-    await browser.close();
-    console.log('PDF generated successfully');
+    // Convert HTML content to PDF using html-pdf-chrome
+    const pdfBuffer = await chromePdf.create(htmlContent, options).then(pdf => pdf.toBuffer());
+
     return pdfBuffer;
   } catch (error) {
     console.error('Error generating PDF:', error);
-    throw error;
+    throw new ErrorHandler("Error during PDF generation: " + error.message, 500);
   }
 };
 
-
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
+
