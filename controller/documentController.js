@@ -179,6 +179,7 @@ exports.downloadDocx = async (req, res, next) => {
 };
 
 
+
 // Download PDF with original PDF included in the ZIP
 exports.downloadPdf = async (req, res, next) => { 
     const { projectId, documentId } = req.params;
@@ -187,9 +188,14 @@ exports.downloadPdf = async (req, res, next) => {
         const { convertedFileBuffer, convertedFileName, pdfFilePath, name } =
             await fetchDocumentAndCreateZip(projectId, documentId, "pdf");
 
-        if (!convertedFileBuffer) {
+        // Debugging: Check if the buffer is valid
+        if (!convertedFileBuffer || !Buffer.isBuffer(convertedFileBuffer)) {
+            console.log("Invalid or non-buffer PDF content detected.");
             return next(new ErrorHandler("Converted PDF Buffer is invalid.", 400));
         }
+
+        // console.log("Proceeding with ZIP creation.");
+        // console.log("Converted PDF Buffer size:", convertedFileBuffer.length);
 
         const bucket = storage.bucket(bucketName);
 
@@ -213,14 +219,16 @@ exports.downloadPdf = async (req, res, next) => {
         );
 
         // Create a ZIP archive
-        const archive = archiver("zip", { zlib: { level: 2 } });
+        const archive = archiver("zip", { zlib: { level: 0 } }); // No compression for binary data
         archive.on("error", (err) => {
+            console.error("Archive creation failed:", err);
             return next(new ErrorHandler("Archive creation failed.", 500));
         });
 
         archive.pipe(res);
 
         // Add converted PDF file to the zip
+        // console.log("Appending converted PDF buffer to the ZIP archive.");
         archive.append(convertedFileBuffer, { name: convertedFileName });
 
         // Fetch and add original PDF using the signed URL

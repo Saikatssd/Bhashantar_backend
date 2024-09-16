@@ -1,7 +1,7 @@
 
 const axios = require('axios');
 // const path = require('path')
-// // const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer');
 // const chromium = require('@sparticuz/chromium');
 // const puppeteer = require('puppeteer-core');
 const ErrorHandler = require('../utils/errorHandler')
@@ -54,6 +54,7 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   if (convertToFileType === 'pdf') {
     convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
     convertedFileBuffer = await htmlToPdf(htmlContent);
+    
   } else if (convertToFileType === 'docx') {
     convertedFileName = `${name.replace('.pdf', '')}Translation.docx`;
 
@@ -127,86 +128,55 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 };
 
 
-// const htmlToPdf = async (htmlContent) => {
-//   try {
-//     const browser = await puppeteer.launch({
-//       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ,
-//       headless: false,
-//       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-//     });
-//     // console.log(`Chrome path: ${await browser.version()}`);
-//     const page = await browser.newPage();
-//     // await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-//     await page.setContent(`
-//             <html>
-//               <head>
-//                 <style>
-                 
-//                  body{
-//                     line-height: 1.5;
-//                  }
-                  
-//                   p {
-//                     line-height: 1.5;
-//                     margin: 0;
-//                   }
-//                   h1, h2, h3, h4, h5, h6 {
-//                     font-weight: bold;
-//                     margin: 0 0 10px 0;
-//                   }
-//                 </style>
-//               </head>
-//               <body>${htmlContent}</body>
-//             </html>
-//           `, { waitUntil: 'networkidle0' });
-//     const pdfBuffer = await page.pdf({
-//       // width: '8.5in',    // Width for Legal size
-//       // height: '14in',    // Height for Legal size
-//       format: 'Legal',
-//       margin: {
-//         top: '25mm',
-//         right: '25mm',
-//         bottom: '25mm',
-//         left: '25mm'
-//       }
-//     });
-//     await browser.close();
-//     return pdfBuffer;
-//   } catch (error) {
-//     console.error('Error generating PDF:', error);
-//     throw error;
-//   }
-// };
-
-
-
-const chromePdf = require('html-pdf-chrome');
-
 const htmlToPdf = async (htmlContent) => {
+  let browser;  
   try {
-    // Set options for the PDF generation
-    const options = {
+    browser = await puppeteer.launch({
+      headless: true, 
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+
+    await page.setContent(`
+      <html>
+        <head>
+          <style>
+            body { line-height: 1.5; }
+            p { line-height: 1.5; margin: 0; }
+            h1, h2, h3, h4, h5, h6 { font-weight: bold; margin: 0 0 10px 0; }
+          </style>
+        </head>
+        <body>${htmlContent}</body>
+      </html>
+    `, { waitUntil: 'networkidle0' });
+
+    const pdfBuffer = await page.pdf({
       format: 'Legal',
       margin: {
         top: '25mm',
         right: '25mm',
         bottom: '25mm',
-        left: '25mm'
+        left: '25mm',
       },
-      printOptions: {
-        displayHeaderFooter: false
-      }
-    };
+    });
 
-    // Convert HTML content to PDF using html-pdf-chrome
-    const pdfBuffer = await chromePdf.create(htmlContent, options).then(pdf => pdf.toBuffer());
+    // Log the generated buffer size
+    console.log('Generated PDF Buffer size:', pdfBuffer.length);
 
-    return pdfBuffer;
+    // Explicitly convert to a Buffer instance
+    return Buffer.from(pdfBuffer);
+
   } catch (error) {
     console.error('Error generating PDF:', error);
-    throw new ErrorHandler("Error during PDF generation: " + error.message, 500);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 };
+
 
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
 
