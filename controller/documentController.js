@@ -248,3 +248,55 @@ exports.downloadPdf = async (req, res, next) => {
         return next(new ErrorHandler(error));
     }
 };
+
+
+
+// Multi-file download and zip handler
+exports.downloadSelectedFiles = async (req, res, next) => {
+    const { projectId, documentIds } = req.body; // Expecting an array of documentIds
+  
+    try {
+      // Set up response for zip download
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="selected_files.zip"`);
+  
+      // Create a ZIP archive
+      const archive = archiver('zip', { zlib: { level: 2 } });
+      archive.on('error', (err) => {
+        console.error('Error creating archive:', err);
+        next(new ErrorHandler('Error creating ZIP archive.', 500));
+      });
+  
+      archive.pipe(res);
+  
+      // Loop through document IDs and add their PDF and DOCX to individual folders
+      for (const documentId of documentIds) {
+        // Fetch the document and create the DOCX
+        const { convertedFileBuffer, convertedFileName, pdfFilePath, name } =
+          await fetchDocumentAndCreateZip(projectId, documentId, 'docx');
+  
+        const bucket = storage.bucket(bucketName);
+  
+        // Generate a signed URL for the original PDF
+        const [pdfSignedUrl] = await bucket.file(pdfFilePath).getSignedUrl({
+          version: 'v4',
+          action: 'read',
+          expires: Date.now() + 15 * 60 * 1000 // 15 minutes expiration
+        });
+  
+        // Create a folder in the ZIP for this file
+        const folderName = name.replace('.pdf', '');
+        archive.append(convertedFileBuffer, { name: `${folderName}/${convertedFileName}` });
+  
+        // Fetch and add original PDF to the same folder
+        const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
+        archive.append(pdfResponse.data, { name: `${folderName}/${name}` });
+      }
+  
+      // Finalize the zip
+      await archive.finalize();
+    } catch (error) {
+      console.error('Error downloading selected files:', error);
+      next(new ErrorHandler('Error downloading selected files.', 500));
+    }
+  };
