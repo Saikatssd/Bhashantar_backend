@@ -45,11 +45,11 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   }
 
   // Replace custom page breaks with actual page breaks in the HTML
-  // htmlContent = htmlContent.replace(/<!-- my page break -->/g, '<div style="page-break-after: always;"></div>');
+  htmlContent = htmlContent.replace(/<p([^>]*?)class="[^"]*\bline-indent\b[^"]*"([^>]*?)>/g, '<p$1$2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
+
 
   let convertedFileBuffer;
   let convertedFileName;
-
   // Convert to PDF or DOCX based on the request
   if (convertToFileType === 'pdf') {
     convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
