@@ -23,6 +23,7 @@ env_variables:
   FIREBASE_CLIENT_CERT_URL: https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
   PORT: 8080
   # FRONTEND_URL: http://localhost:5173
+  # FRONTEND_URL: https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com
   FRONTEND_URL: https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com
   # PUPPETEER_EXECUTABLE_PATH: "C:\\"
   PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
