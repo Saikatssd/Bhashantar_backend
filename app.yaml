@@ -11,16 +11,18 @@ env_variables:
   GCP_PROJECT_ID: 'bhasantar-ui-and-llm'  # Your Google Cloud project ID
   GCS_BUCKET_NAME: 'bhasantar'  # Your Cloud Storage bucket name
 
-  FIREBASE_TYPE: service_account
-  FIREBASE_PROJECT_ID: kyrotics
-  FIREBASE_PRIVATE_KEY_ID: fc0a00e434c6d42c9825247d565db49a729408b9
-  FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDUqJmgNnJ44L8k\nYQpFN/qc4gjIjdGPnpthEcQSbFBpraUS+K3PYJwg5UGHpb6QC6u7ZFZFEiV8H2P/\noiP+RBrDfIRuITJx0UkNlPwEJ5zM4k63i+IHYQQTF3xJw596xZKpD8E7yCIA/RlL\naBhUCRQoEWjREU6DREORuNclt0Hu6YWaI1VRod/pcmf2lsptY+MkZSw331kjRI10\n80F6JgPiSPohxHKcaGUSeSuxEjvUvXIiVtygx3HAlj4JtHT+xuoQ2e6DKP5gy8vb\nBJ2IC+CGrUz0U9xo1ldW/sGn+ht7dKaE2pjU1iGVMJdArQ+WUdgaF0vMcPgwodlr\nEktzvj+HAgMBAAECggEAJaYFsKYDBSBw5o1hhpie/zhLKspkv+LqCjjdeA+B+vuZ\nfm7VQqINcgt0WwH+Zz0RtbbRSSApz7w09XRsn97JyDMatO6eoiTVpJhsN4YVzfYA\nzqDurrS/xmuBfwOpj9A7oz+dS6qmTnuAh2eR6wrCbUeLwXupZTboKXvKZyx2+Uc+\nz5kWHZtwPgLKQms476dwTnLbt4GRprhqdcx5yYdpc35fuHikmhH0eVBlwSY1tEij\nVqohp7ETbySPOgxfWU2FsH25X4aqALuFNl2E+eF+3nVFhqyQYDhBZ3pdMIhrpzLX\nzEqjWlHHWNQYgM5iZhvrlnAkzkoqS2OtMoUjp/PThQKBgQDwS4aW6XTScW0V5jJI\nIc6wuIUO4T17Lxk/9T0wIzffTeMVi6pX7WP8oi3eXCollJW+LJTyql8AvmDGGhb7\nxi8QMHAdXJ0IrCssnCVQimX0lJuxElReP+upk2oZ63lR8DWO/mp5VeeyT52NM4yJ\nmMdsVgX7h384FWK96XkTGsF3GwKBgQDijq2QIk739+d72VqVUTvnaqWyKhyHjhOa\nDpQQnIFd5L+q3qnDP+Dn2oDIwgD9Vxr4HuWYgV/SlTCSuDWvjOGcpexL9Fa6r6Px\npZvxNLXCHORuy7ji4G7RjtoyqnlkRD5w6lL2RRCp4gtChAiXGfD7awW8ST9cAszN\nSMaXXXeEBQKBgQDmoUaTT4yNcsolS6SU8MXFfcRPjMWKlqDgbwuESTkV/VZn1n3v\nGGxwDGSD1+en3B2Awp9O7VBzkUWmvWGz0vpWynbA56PcsApcLZ3u2HaUsZFg+Vu6\nfhU807zxFb2CdE+jZ/JfdKEF1j48SO6pHdbB1yq0yM7E0FnONui6+mIXYwKBgQDg\no4QpBDu015QpUyzkHTX+kdpVvDepmRCKkqXxip0jUmtRq5I8TRxeCGPlq6d7i2Ds\nYQZanv06Oj99WzWwKUqTHlocPdu5I+q08fabxh3qqOc/jLR4EP0QwEpOLoZLCve2\n0kEMexK4v69WdsBlwo0VXdrEBQTT4NrdOanf8AdPWQKBgAJQaTPLatu1mOCQZac8\nmp2nyxl0JhfX5bMg2P0PWlr/YpUjYj92siexGr2mmbvtbrsgwUgX28cbIgkpu9ki\nd7pVaHIsHfjyYywss3ZRPIWrbswaN/EjC+vyAaa/YWHYlQPDac3faGP4Brqoghyt\npxDlWNLc0lxZfXbMYxD+7U8n\n-----END PRIVATE KEY-----\n"
-  FIREBASE_CLIENT_EMAIL: firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
-  FIREBASE_CLIENT_ID: 102971239495613263983
-  FIREBASE_AUTH_URI: https://accounts.google.com/o/oauth2/auth
-  FIREBASE_TOKEN_URI: https://oauth2.googleapis.com/token
-  FIREBASE_AUTH_PROVIDER_CERT_URL: https://www.googleapis.com/oauth2/v1/certs
-  FIREBASE_CLIENT_CERT_URL: https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-ehuo5@kyrotics.iam.gserviceaccount.com
+  FIREBASE_TYPE: "service_account"
+  FIREBASE_PROJECT_ID: "bhasantar-63254"
+  FIREBASE_PRIVATE_KEY_ID: "95dab1ba6b6f878d21aca42278ed7ab97d0cc30f"
+  FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDgSejtQQb2QV8z\n1fcQTXBeglNL11mW6choARg1eo9xrzjbo9JkXK6K3AM6azbXatL66oMYgx3MDqAk\n4jFUVpmUlgb6SmENAvq+bSBKQisCU9W0+GgS65sDxgQmfTxmwmhCPFhFkesOw3UB\nTtnUXGHUU7h399oljS9IDF3PDRkOt8zMs+hZgHm3f96tYMWWeoaRjcRYXpcTM1CH\n4+Hr2oWTs6LuaeOE02VxHr6BPVhFTWGQbryH7C1MMPXWlDIvoCJFVQmWMSWx4CJp\n+u+9dOg2BJD/o6NmIMzP+Ijml3fgwb3/BwB1fZNJt0PU3Fbm2WVO+rg5w8RHhuFv\nK9SvDew9AgMBAAECggEAIgdaACO6tyz25pSYGKXvHl+pMfCuhoTaDjGFp0N8354v\n7bRUDOcPkkDMJUEJVTM/Zv336DBTGoJo41UFb/V4SqtdIVHx7zlHABJAG77LQLNQ\nfABTkJ9PabSm14zDrRbiHj6ClAI4sV46nSQF95VmlazNaDeMpjWJTrtAQP7h5jH4\nLlGKVg4MfgxkrcSV04b2GKPFGUOAUC2k99M6IoH2AU30yfVevxWutSMQjZ2gdcYd\nQ8Zmd84tj3jonItGHImCak+VbWO+ywedXLjEPd4YSvEb56uGLpvflNW0qOoEk8ZK\ns+0WtSDedTp2UXicECes/l+pSPVo2J1qyZLU43+6LwKBgQD+WNhZwzWn6G2h3tQW\nCY6r6L8wEqjdp0iXETIXZU5iUrz27T8khr/aBIFNQLlwp1AZZnO6nfUoA/4h1d2y\nk6KqD5/AUnqlaDvp1ivq7RWHta6jTwzY8PBvTzoVkKHNWxufqMljZoXXy34xWvU1\nNeRWCrVOO+p9d6uCJ7HcxArnEwKBgQDhvw6VDAUyLMPbBtdlFb0LTNlL4IdNPDOS\n/9pfZczHH043L+WRqbdPObY4/dypy1BZ9jr9SpzlELHOjerR0EpoziTB4ecHOt2P\nlBNgUTYdRb1TS3atFhxRG/lZhIjRxxYolAu6ABWYjYOW5CjohfadC89MdjZLZgCx\nqdQg9S25bwKBgQC6i+kqdM1uuD9ogKkm/J2ConNPS/BEmcPY4MjPdgL2hF6J8Nnl\n7VrbCYDYa0dXQ6+w4X6x+dZsIfmLUXOH3VZpyonNofDITlnbGLUfWgH3hh5vMrRm\njNibmw0r8edqWY86G66RVAmIi3yjsGW2QC+Xl8UAe1tx6IqHLJv8ImEotwKBgFpa\ntUR0zjOZ9T5aS6YbAFJgjOywzpbcTKw+mbHrNf5RCmZOVm1p54PfTo8bFNIlHWEU\ni+HLlmacuv44kU8vNkkikVXEzEp5hiqskuDPQICQ5ElNgA+hNO5F6xSoVnbYX4cY\nUmU9GWe45H1ljvYagG21R2CMRAkDp610kwIqAAYjAoGBAKZqNRNQ+UQB0gdZNxy+\ns/FeIpzqsTecM3X1puVMEwBONIntATGRC3WSB1b5DFi6q3TGgG8Df0MizJZqboMi\neDydVt7cGlhIx0IcEQLamACHzVCoImGXjURwn6Iso2E7SJr+HHgZrmxPLLPLT1Hj\nZc8jXbwhC/XgKUxBteNs2WIB\n-----END PRIVATE KEY-----\n"
+  FIREBASE_CLIENT_EMAIL: "firebase-adminsdk-fhqm5@bhasantar-63254.iam.gserviceaccount.com"
+  FIREBASE_CLIENT_ID: "106979737856869329445"
+  FIREBASE_AUTH_URI: "https://accounts.google.com/o/oauth2/auth"
+  FIREBASE_TOKEN_URI: "https://oauth2.googleapis.com/token"
+  FIREBASE_AUTH_PROVIDER_CERT_URL: "https://www.googleapis.com/oauth2/v1/certs"
+  FIREBASE_CLIENT_CERT_URL: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fhqm5%40bhasantar-63254.iam.gserviceaccount.com"
+  FIREBASE_UNIVERSE_DOMAIN: "googleapis.com"
+
   PORT: 8080
   # FRONTEND_URL: http://localhost:5173
   # FRONTEND_URL: https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com
