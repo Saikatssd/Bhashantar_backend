@@ -19,7 +19,7 @@ const serviceAccount = {
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://kyrotics.firebaseio.com"
+  // databaseURL: "https://bhasantar-63254.firebaseio.com"
 });
 
 

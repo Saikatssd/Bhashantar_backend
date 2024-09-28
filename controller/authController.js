@@ -79,9 +79,12 @@ exports.registerSuperAdmin = async (req, res, next) => {
         return next(new ErrorHandler("Missing Required Fields ", 400));
 
     }
-
     const roleRef = db.collection('roles').doc(roleId);
     const roleSnapshot = await roleRef.get();
+    if (!roleSnapshot.exists) {
+        return next(new ErrorHandler("Role Not Found", 400));
+    }
+    const roleName = roleSnapshot.data().name;
 
     if (!roleSnapshot.exists) {
         return next(new ErrorHandler("Role Not Found", 400));
@@ -95,12 +98,12 @@ exports.registerSuperAdmin = async (req, res, next) => {
             email: userRecord.email,
             phoneNo: phoneNo,
             roleId: roleId,
-            companyId: null,
+            companyId:"",
 
             createdAt: new Date(),
         });
 
-
+        await auth.setCustomUserClaims(userRecord.uid, { companyId:"",roleName });
         res.status(201).send('Initial SuperAdmin registered successfully');
     } catch (error) {
         console.error('Error registering initial SuperAdmin:', error);
