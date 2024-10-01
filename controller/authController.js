@@ -112,6 +112,85 @@ exports.registerSuperAdmin = async (req, res, next) => {
 };
 
 
+exports.bulkCreateUsers = async (req, res, next) => {
+    const users = req.body; // Get the array of users from request body
+
+    if (!Array.isArray(users) || users.length === 0) {
+        return res.status(400).json({ success: false, message: 'Invalid user data provided' });
+    }
+
+    try {
+        let createdUsers = [];
+
+        for (const user of users) {
+            const { name, email, password, phoneNo, roleId, companyId } = user;
+
+            // Validate roleId and companyId
+            const roleRef = db.collection('roles').doc(roleId);
+            const roleSnapshot = await roleRef.get();
+            if (!roleSnapshot.exists) {
+                throw new Error(`Role not found for user ${name}`);
+            }
+            const roleName = roleSnapshot.data().name;
+
+            const companyRef = db.collection('companies').doc(companyId);
+            const companySnapshot = await companyRef.get();
+            if (!companySnapshot.exists) {
+                throw new Error(`Company not found for user ${name}`);
+            }
+            const companyName = companySnapshot.data().name;
+
+            // Check if user already exists
+            let userExists = false;
+            try {
+                await auth.getUserByEmail(email);
+                userExists = true;
+            } catch (error) {
+                if (error.code !== 'auth/user-not-found') {
+                    throw error;
+                }
+            }
+
+            if (userExists) {
+                console.log(`User with email ${email} already exists, skipping.`);
+                continue; // Skip if user exists
+            }
+
+            // Create the user in Firebase Authentication
+            const userRecord = await auth.createUser({
+                email,
+                password,
+                phoneNo,
+            });
+
+            // Set custom claims
+            await auth.setCustomUserClaims(userRecord.uid, {
+                companyId,
+                companyName,
+                roleName,
+            });
+
+            // Save user data to Firestore
+            await db.collection('users').doc(userRecord.uid).set({
+                name,
+                email: userRecord.email,
+                phoneNo,
+                roleId,
+                companyId,
+                createdAt: new Date(),
+            });
+
+            createdUsers.push({ uid: userRecord.uid, name, email });
+        }
+
+        res.status(201).send({ success: true, message: `${createdUsers.length} users created successfully`, users: createdUsers });
+    } catch (error) {
+        console.error('Error bulk creating users:', error);
+        next(error);
+    }
+};
+
+
 
 exports.getUserProfile =  async (req, res, next) => {
     try {
@@ -170,7 +249,7 @@ exports.disableUser = async (req, res) => {
     const { userId } = req.body;
 
     try {
-        await auth().updateUser(userId, { disabled: true });
+        await auth.updateUser(userId, { disabled: true });
         res.status(200).send({ message: 'User disabled successfully' });
     } catch (error) {
         console.error('Error disabling user:', error);
@@ -183,7 +262,7 @@ exports.enableUser = async (req, res) => {
     const { userId } = req.body;
 
     try {
-        await admin.auth().updateUser(userId, { disabled: false });
+        await auth.updateUser(userId, { disabled: false });
         res.status(200).send({ message: 'User enabled successfully' });
     } catch (error) {
         console.error('Error enabling user:', error);

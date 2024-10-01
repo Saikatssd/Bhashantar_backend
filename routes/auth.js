@@ -6,6 +6,7 @@ const authController = require('../controller/authController')
 
 
 router.post('/createUser',authController.createUser);
+router.post('/bulkCreateUsers',authController.bulkCreateUsers);
 
 router.post('/registerSuperAdmin',authController.registerSuperAdmin);
 

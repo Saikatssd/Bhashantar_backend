@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 const corsOptions = {
-  origin: [process.env.FRONTEND_URL, "http://localhost:5173",'https://www.bhasantar.com', 'https://bhasantar.com','https://bhashantar-frontend.vercel.app'],
+  origin: [process.env.FRONTEND_URL, "http://localhost:5173",'https://www.bhasantar.com', 'https://bhasantar.com','https://bhashantar-frontend.vercel.app','https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com'],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Content-Disposition"],
