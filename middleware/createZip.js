@@ -54,7 +54,7 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   if (convertToFileType === 'pdf') {
     convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
     convertedFileBuffer = await htmlToPdf(htmlContent);
-    
+
   } else if (convertToFileType === 'docx') {
     convertedFileName = `${name.replace('.pdf', '')}Translation.docx`;
 
@@ -86,6 +86,31 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
         },
       },
     };
+ const extractBase64Data = (dataUri) => {
+      const matches = dataUri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        return matches[2];
+      }
+      throw new Error('Invalid input string');
+    };
+
+    // Process images in HTML content
+    const processedHtmlContent = htmlContent.replace(
+      /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g,  // <-- 'g' added here for global match
+      (match, dataUri) => {
+        try {
+          const base64Data = extractBase64Data(dataUri);
+          // No need to decode and re-encode, just use the extracted base64 data
+          return `<img src="data:image/png;base64,${base64Data}">`;
+        } catch (error) {
+          console.error('Error processing base64 image:', error);
+          return match; // Return original img tag if processing fails
+        }
+      }
+    );
+    
+
+
 
     // Inject Nirmala UI font style directly into the HTML content
     const styledHtmlContent = `
@@ -112,9 +137,11 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
                   }
                 </style>
               </head>
-              <body>${htmlContent}</body>
+              <body>${processedHtmlContent}</body>
             </html>
         `;
+
+        // console.log('hi',styledHtmlContent)
 
     convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(err => {
       throw new ErrorHandler("Error during HTML to DOCX conversion: " + err.message, 500);
@@ -129,10 +156,10 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
 
 const htmlToPdf = async (htmlContent) => {
-  let browser;  
+  let browser;
   try {
     browser = await puppeteer.launch({
-      headless: true, 
+      headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
