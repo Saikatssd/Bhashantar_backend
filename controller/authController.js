@@ -98,12 +98,12 @@ exports.registerSuperAdmin = async (req, res, next) => {
             email: userRecord.email,
             phoneNo: phoneNo,
             roleId: roleId,
-            companyId:"",
+            companyId: "",
 
             createdAt: new Date(),
         });
 
-        await auth.setCustomUserClaims(userRecord.uid, { companyId:"",roleName });
+        await auth.setCustomUserClaims(userRecord.uid, { companyId: "", roleName });
         res.status(201).send('Initial SuperAdmin registered successfully');
     } catch (error) {
         console.error('Error registering initial SuperAdmin:', error);
@@ -192,7 +192,7 @@ exports.bulkCreateUsers = async (req, res, next) => {
 
 
 
-exports.getUserProfile =  async (req, res, next) => {
+exports.getUserProfile = async (req, res, next) => {
     try {
         const uid = req.user.uid;
 
@@ -245,11 +245,15 @@ exports.getUserProfile =  async (req, res, next) => {
 // Disable a user
 
 
-exports.disableUser = async (req, res) => {
+exports.disableUser = async (req, res, next) => {
     const { userId } = req.body;
 
     try {
         await auth.updateUser(userId, { disabled: true });
+        //database update
+        const userRef = db.collection('users').doc(userId); 
+        await userRef.update({ disabled: true });
+
         res.status(200).send({ message: 'User disabled successfully' });
     } catch (error) {
         console.error('Error disabling user:', error);
@@ -263,6 +267,10 @@ exports.enableUser = async (req, res) => {
 
     try {
         await auth.updateUser(userId, { disabled: false });
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({ disabled: false });
+
+
         res.status(200).send({ message: 'User enabled successfully' });
     } catch (error) {
         console.error('Error enabling user:', error);
