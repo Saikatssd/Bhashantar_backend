@@ -56,7 +56,7 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
     convertedFileBuffer = await htmlToPdf(htmlContent);
 
   } else if (convertToFileType === 'docx') {
-    convertedFileName = `${name.replace('.pdf', '')}Translation.docx`;
+    convertedFileName = `${name.replace('.pdf', '')}.docx`;
 
     const options = {
       table: { row: { cantSplit: true } },
