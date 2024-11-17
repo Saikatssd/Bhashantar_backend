@@ -165,6 +165,11 @@ app.get('/', (req, res) => {
   res.send('Welcome to the Company and Project Management API');
 });
 
+app.get('/server-timestamp', (req, res) => {
+  const serverTimestamp = new Date(); // Get the current server date and time
+  res.json({ timestamp: serverTimestamp });
+});
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
