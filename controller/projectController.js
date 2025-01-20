@@ -5,57 +5,117 @@ const ErrorHandler = require('../utils/errorHandler');
 
 
 // Endpoint to create new project
-exports.createProject = async (req, res, next) => {
-    const { name, companyId } = req.body;
+// exports.createProject = async (req, res, next) => {
+//     const { name, companyId } = req.body;
 
+//     // Check if the name is empty
+//     if (!name || name.trim() === "") {
+//         return next(new ErrorHandler("Project name cannot be empty", 400));
+//     }
+
+//     try {
+//         const companyRef = db.collection('companies').doc(companyId);
+//         const companySnapshot = await companyRef.get();
+
+//         // Check if the company exists
+//         if (!companySnapshot.exists) {
+//             return next(new ErrorHandler("Company Not Found", 400));
+//         }
+
+//         // Normalize the name to lowercase for case-insensitive comparison
+//         const normalizedName = name.trim().toLowerCase();
+
+//         // Fetch all projects in the company
+//         const projectsRef = db.collection('projects');
+//         const projectQuery = await projectsRef
+//             .where('companyId', '==', companyId)
+//             .get();
+
+//         // Check for a case-insensitive name match
+//         const nameExists = projectQuery.docs.some(doc =>
+//             doc.data().name.trim().toLowerCase() === normalizedName
+//         );
+
+//         if (nameExists) {
+//             return next(new ErrorHandler("Project name already exists", 400));
+//         }
+
+//         // Create the new project
+//         const projectRef = projectsRef.doc();
+//         await projectRef.set({
+//             id: projectRef.id,
+//             name: name.trim(),
+//             companyId,
+//             createdAt: new Date(),
+//         });
+
+//         res.status(201).send({ name: name.trim(), id: projectRef.id });
+//     } catch (error) {
+//         next(error);
+//         res.status(400).send(error);
+//     }
+// };
+
+
+exports.createProject = async (req, res, next) => {
+    const { name, companyId, parentId } = req.body
+  
     // Check if the name is empty
     if (!name || name.trim() === "") {
-        return next(new ErrorHandler("Project name cannot be empty", 400));
+      return next(new ErrorHandler("Project name cannot be empty", 400))
     }
-
+  
     try {
-        const companyRef = db.collection('companies').doc(companyId);
-        const companySnapshot = await companyRef.get();
-
-        // Check if the company exists
-        if (!companySnapshot.exists) {
-            return next(new ErrorHandler("Company Not Found", 400));
-        }
-
-        // Normalize the name to lowercase for case-insensitive comparison
-        const normalizedName = name.trim().toLowerCase();
-
-        // Fetch all projects in the company
-        const projectsRef = db.collection('projects');
-        const projectQuery = await projectsRef
-            .where('companyId', '==', companyId)
-            .get();
-
-        // Check for a case-insensitive name match
-        const nameExists = projectQuery.docs.some(doc =>
-            doc.data().name.trim().toLowerCase() === normalizedName
-        );
-
-        if (nameExists) {
-            return next(new ErrorHandler("Project name already exists", 400));
-        }
-
-        // Create the new project
-        const projectRef = projectsRef.doc();
-        await projectRef.set({
-            id: projectRef.id,
-            name: name.trim(),
-            companyId,
-            createdAt: new Date(),
-        });
-
-        res.status(201).send({ name: name.trim(), id: projectRef.id });
+      const companyRef = db.collection("companies").doc(companyId)
+      const companySnapshot = await companyRef.get()
+  
+      // Check if the company exists
+      if (!companySnapshot.exists) {
+        return next(new ErrorHandler("Company Not Found", 400))
+      }
+  
+      // Normalize the name to lowercase for case-insensitive comparison
+      const normalizedName = name.trim().toLowerCase()
+  
+      // Fetch all projects in the company
+      const projectsRef = db.collection("projects")
+      let projectQuery = projectsRef.where("companyId", "==", companyId)
+  
+      // If parentId is provided, add it to the query
+      if (parentId) {
+        projectQuery = projectQuery.where("parentId", "==", parentId)
+      } else {
+        projectQuery = projectQuery.where("parentId", "==", null)
+      }
+  
+      const projectQuerySnapshot = await projectQuery.get()
+  
+      // Check for a case-insensitive name match
+      const nameExists = projectQuerySnapshot.docs.some((doc) => doc.data().name.trim().toLowerCase() === normalizedName)
+  
+      if (nameExists) {
+        return next(new ErrorHandler("Project name already exists at this level", 400))
+      }
+  
+      // Create the new project
+      const projectRef = projectsRef.doc()
+      await projectRef.set({
+        id: projectRef.id,
+        name: name.trim(),
+        companyId,
+        parentId: parentId || null,
+        isFolder: true,
+        createdAt: new Date(),
+      })
+  
+      res.status(201).send({ name: name.trim(), id: projectRef.id, parentId: parentId || null })
     } catch (error) {
-        next(error);
-        res.status(400).send(error);
+      next(error)
+      res.status(400).send(error)
     }
-};
-
+  }
+  
+  
 
 // Endpoint to edit/rename a project
 exports.editProject = async (req, res, next) => {
