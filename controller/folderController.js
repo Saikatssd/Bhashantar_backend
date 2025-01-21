@@ -51,44 +51,96 @@ exports.createFolder = async (req, res, next) => {
   }
 };
 
+// exports.getAllFolders = async (req, res, next) => {
+//   try {
+//     const { projectId } = req.params;
+
+//     // 1) Check project
+//     const projectRef = db.collection("projects").doc(projectId);
+
+//     const projectSnap = await projectRef.get();
+//     if (!projectSnap.exists) {
+//       return next(new ErrorHandler("Project not found", 400));
+//     }
+
+//     // 2) Fetch all folders under this project
+//     const foldersSnap = await projectRef.collection("folders").get();
+//     const folders = foldersSnap.docs.map((doc) => doc.data());
+
+//     // 3) Build a map
+//     const folderMap = {};
+//     folders.forEach((folder) => {
+//       folderMap[folder.id] = { ...folder, children: [] };
+//     });
+
+//     // 4) Link children to parents
+//     const rootFolders = [];
+//     folders.forEach((folder) => {
+//       if (folder.parentFolderId) {
+//         folderMap[folder.parentFolderId].children.push(folderMap[folder.id]);
+//       } else {
+//         rootFolders.push(folderMap[folder.id]);
+//       }
+//     });
+
+//     return res.status(200).json({ folders: rootFolders });
+//   } catch (error) {
+//     return next(new ErrorHandler(error.message, 500));
+//   }
+// };
+
+
 exports.getAllFolders = async (req, res, next) => {
   try {
     const { projectId } = req.params;
 
     // 1) Check project
     const projectRef = db.collection("projects").doc(projectId);
-
     const projectSnap = await projectRef.get();
+
     if (!projectSnap.exists) {
       return next(new ErrorHandler("Project not found", 400));
     }
 
     // 2) Fetch all folders under this project
     const foldersSnap = await projectRef.collection("folders").get();
-    const folders = foldersSnap.docs.map((doc) => doc.data());
+    if (foldersSnap.empty) {
+      return res.status(200).json({ folders: [] }); // No folders found
+    }
 
-    // 3) Build a map
+    const folders = foldersSnap.docs.map((doc) => ({
+      id: doc.id, // Ensure the document ID is included
+      ...doc.data(),
+    }));
+
+    // 3) Build a map of folders
     const folderMap = {};
     folders.forEach((folder) => {
-      folderMap[folder.id] = { ...folder, children: [] };
+      folderMap[folder.id] = { ...folder, children: [] }; // Initialize children array
     });
 
     // 4) Link children to parents
     const rootFolders = [];
     folders.forEach((folder) => {
       if (folder.parentFolderId) {
-        folderMap[folder.parentFolderId].children.push(folderMap[folder.id]);
+        const parentFolder = folderMap[folder.parentFolderId];
+        if (parentFolder) {
+          parentFolder.children.push(folderMap[folder.id]);
+        } else {
+          console.warn(`Parent folder not found for folder: ${folder.id}`);
+        }
       } else {
         rootFolders.push(folderMap[folder.id]);
       }
     });
 
+    // 5) Return the folder hierarchy
     return res.status(200).json({ folders: rootFolders });
   } catch (error) {
+    console.error("Error fetching folders:", error);
     return next(new ErrorHandler(error.message, 500));
   }
 };
-
 
 
 exports.getFilesByFolder = async (req, res, next) => {
