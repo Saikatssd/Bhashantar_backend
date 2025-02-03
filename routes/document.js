@@ -12,6 +12,7 @@ router.get("/:projectId/documentInfo/:documentId", documentController.documentIn
 router.put('/generateSignedUrlForHtmlUpdate', documentController.updateDocument);
 
 router.post("/deleteFile", documentController.deleteFile);
+router.post("/deleteBulkFiles", documentController.deleteBulkFiles);
 
 router.get("/:projectId/:documentId/downloadDocx", documentController.downloadDocx);
 

@@ -6,9 +6,10 @@ const axios = require("axios");
 const archiver = require("archiver");
 const { fetchDocumentAndCreateZip } = require("../middleware/createZip");
 const { Storage } = require("@google-cloud/storage");
-
+const admin = require('firebase-admin');
 const storage = new Storage();
 const bucketName = "bhasantar";
+const bucket = storage.bucket(bucketName);
 
 
 
@@ -130,6 +131,126 @@ exports.deleteFile = async (req, res, next) => {
     }
 };
 
+// backend/deleteFiles.js
+
+/**
+ * Express endpoint to delete a list of files (both pdf and html) from Cloud Storage
+ * and delete their metadata from Firestore.
+ *
+ * Expected JSON payload:
+ * {
+ *   "projectId": "25UF5iaiu1JzuwBFsSYI",
+ *   "fileNames": ["1991_2_51_66.pdf", "anotherFile.pdf", ...]
+ * }
+ */
+exports.deleteBulkFiles = async (req, res) => {
+    try {
+      const { projectId, fileNames } = req.body;
+      if (!projectId || !fileNames || !Array.isArray(fileNames)) {
+        return res.status(400).json({ error: "Missing projectId or fileNames" });
+      }
+  
+      // *** 1. Delete Files from Google Cloud Storage ***
+      //
+      // For each file name (assumed to be a PDF file name) we compute the full paths for
+      // both the PDF and the corresponding HTML file. If a deletion fails because the file
+      // doesn't exist (error code 404), a warning is logged.
+      const deleteGcsPromises = fileNames.flatMap((fileName) => {
+        let pdfFileName, htmlFileName;
+  
+        // Determine file names based on extension:
+        if (fileName.endsWith('.pdf')) {
+          pdfFileName = fileName;
+          htmlFileName = fileName.replace(/\.pdf$/, '.html');
+        } else if (fileName.endsWith('.html')) {
+          htmlFileName = fileName;
+          pdfFileName = fileName.replace(/\.html$/, '.pdf');
+        } else {
+          // If no extension is provided, assume it's the base name.
+          pdfFileName = `${fileName}.pdf`;
+          htmlFileName = `${fileName}.html`;
+        }
+  
+        // Build the full paths inside your bucket.
+        const pdfPath = `projects/${projectId}/${pdfFileName}`;
+        const htmlPath = `projects/${projectId}/${htmlFileName}`;
+  
+        return [
+          bucket.file(pdfPath).delete().catch((err) => {
+            if (err.code === 404) {
+              console.warn(`Warning: File not found in GCS: ${pdfPath}`);
+              return;
+            }
+            throw err;
+          }),
+          bucket.file(htmlPath).delete().catch((err) => {
+            if (err.code === 404) {
+              console.warn(`Warning: File not found in GCS: ${htmlPath}`);
+              return;
+            }
+            throw err;
+          })
+        ];
+      });
+  
+      // Wait until all GCS deletion promises have completed.
+      await Promise.all(deleteGcsPromises.flat());
+  
+      // *** 2. Delete Metadata from Firestore ***
+      //
+      // The metadata documents are stored under the collection path:
+      // "projects/{projectId}/files". Since Firestore's "in" query accepts at most 10 values,
+      // we break the fileNames array into chunks.
+      const fileCollectionRef = admin
+        .firestore()
+        .collection("projects")
+        .doc(projectId)
+        .collection("files");
+  
+      const chunkSize = 10;
+      const chunks = [];
+      for (let i = 0; i < fileNames.length; i += chunkSize) {
+        chunks.push(fileNames.slice(i, i + chunkSize));
+      }
+  
+      // For each chunk, query for documents whose "name" field is in the current chunk.
+      // For any file name that does not have a matching Firestore document, a warning is logged.
+      const deleteFirestorePromises = chunks.map(async (chunk) => {
+        const snapshot = await fileCollectionRef.where("name", "in", chunk).get();
+        if (snapshot.empty) {
+          chunk.forEach((fileName) => {
+            console.warn(`Warning: No Firestore metadata document found for ${fileName}`);
+          });
+          return;
+        } else {
+          const foundNames = snapshot.docs.map(doc => doc.get("name"));
+          // Log a warning for any fileName in this chunk that wasn't found.
+          chunk.forEach((fileName) => {
+            if (!foundNames.includes(fileName)) {
+              console.warn(`Warning: No Firestore metadata document found for ${fileName}`);
+            }
+          });
+          const batch = admin.firestore().batch();
+          snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+          return batch.commit().catch((err) => {
+            console.warn(`Warning: Error deleting Firestore metadata: ${err}`);
+            return;
+          });
+        }
+      });
+  
+      await Promise.all(deleteFirestorePromises);
+  
+      // Respond with success.
+      return res
+        .status(200)
+        .json({ message: "Files and metadata deleted successfully." });
+    } catch (error) {
+      console.error("Error deleting files and metadata:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  };
+  
 
 
 
@@ -300,6 +421,8 @@ exports.downloadSelectedFiles = async (req, res, next) => {
       next(new ErrorHandler('Error downloading selected files.', 500));
     }
   };
+
+  
 
 
 
