@@ -95,8 +95,11 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
     };
 
     // Process images in HTML content
-    const processedHtmlContent = htmlContent.replace(
-      /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g,  // <-- 'g' added here for global match
+    const processedHtmlContent =
+  `<div style="line-height: 1.5;">` +
+  htmlContent
+    .replace(
+      /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g, // Process base64 images
       (match, dataUri) => {
         try {
           const base64Data = extractBase64Data(dataUri);
@@ -107,7 +110,12 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
           return match; // Return original img tag if processing fails
         }
       }
-    );
+    )
+    .replace(
+      /class="ql-align-(center|right|left|justify)"/g, // Convert alignment classes to inline style
+      (match, alignment) => `style="text-align: ${alignment};"`
+    ) +
+  `</div>`;
     
 
 
