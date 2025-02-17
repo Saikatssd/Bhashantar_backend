@@ -57,6 +57,7 @@ exports.createUser = async (req, res, next) => {
             phoneNo,
             roleId,
             companyId,
+            disabled: false,
             createdAt: new Date(),
         });
 

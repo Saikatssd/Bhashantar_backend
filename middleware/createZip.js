@@ -1,21 +1,25 @@
-
-const axios = require('axios');
+const axios = require("axios");
 // const path = require('path')
-const puppeteer = require('puppeteer');
+const puppeteer = require("puppeteer");
 // const chromium = require('@sparticuz/chromium');
 // const puppeteer = require('puppeteer-core');
-const ErrorHandler = require('../utils/errorHandler')
-const { db } = require('../firebaseAdmin');
-const htmlToDocx = require('html-to-docx')
+const ErrorHandler = require("../utils/errorHandler");
+const { db } = require("../firebaseAdmin");
+const htmlToDocx = require("html-to-docx");
 const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
 
-
-
-
-const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileType) => {
-  const documentRef = db.collection('projects').doc(projectId).collection('files').doc(documentId);
+const fetchDocumentAndCreateZip = async (
+  projectId,
+  documentId,
+  convertToFileType
+) => {
+  const documentRef = db
+    .collection("projects")
+    .doc(projectId)
+    .collection("files")
+    .doc(documentId);
   const doc = await documentRef.get();
 
   if (!doc.exists) {
@@ -23,7 +27,7 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   }
 
   const { name } = doc.data();
-  const htmlFileName = name.replace('.pdf', '.html');
+  const htmlFileName = name.replace(".pdf", ".html");
   const htmlFilePath = `projects/${projectId}/${htmlFileName}`;
   const pdfFilePath = `projects/${projectId}/${name}`; // Assuming the PDF is stored as the original name
 
@@ -31,9 +35,9 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
 
   // Generate a signed URL for the HTML file
   const [htmlSignedUrl] = await bucket.file(htmlFilePath).getSignedUrl({
-    version: 'v4',
-    action: 'read',
-    expires: Date.now() + 15 * 60 * 1000 // 15 minutes expiration
+    version: "v4",
+    action: "read",
+    expires: Date.now() + 15 * 60 * 1000, // 15 minutes expiration
   });
 
   // Fetch HTML content using the signed URL
@@ -45,18 +49,27 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   }
 
   // Replace custom page breaks with actual page breaks in the HTML
-  htmlContent = htmlContent.replace(/<p([^>]*?)class="[^"]*\bline-indent\b[^"]*"([^>]*?)>/g, '<p$1$2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;');
+  htmlContent = htmlContent.replace(
+    /<p([^>]*?)class="[^"]*\bline-indent\b[^"]*"([^>]*?)>/g,
+    "<p$1$2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+  );
 
+  // NEW STEP: Replace the custom page break tag with one that the DOCX converter understands.
+  // This replacement takes any <hr> tag with class "page-break" and replaces it
+  // with a div that has "page-break-after: always;".
+  htmlContent = htmlContent.replace(
+    /<hr\s+class="page-break"[^>]*>/gi,
+    '<div style="page-break-after: always;"></div>'
+  );
 
   let convertedFileBuffer;
   let convertedFileName;
   // Convert to PDF or DOCX based on the request
-  if (convertToFileType === 'pdf') {
-    convertedFileName = `${name.replace('.pdf', '')}Translation.pdf`;
+  if (convertToFileType === "pdf") {
+    convertedFileName = `${name.replace(".pdf", "")}Translation.pdf`;
     convertedFileBuffer = await htmlToPdf(htmlContent);
-
-  } else if (convertToFileType === 'docx') {
-    convertedFileName = `${name.replace('.pdf', '')}.docx`;
+  } else if (convertToFileType === "docx") {
+    convertedFileName = `${name.replace(".pdf", "")}.docx`;
 
     const options = {
       table: { row: { cantSplit: true } },
@@ -75,50 +88,47 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
       underline: true,
       page: {
         size: {
-          width: 12240,  // 8.5 inches in Twips (1 inch = 1440 Twips)
+          width: 12240, // 8.5 inches in Twips (1 inch = 1440 Twips)
           height: 20160, // 14 inches in Twips
         },
         margin: {
-          top: 1440,   // 1 inch margin (1440 Twips)
+          top: 1440, // 1 inch margin (1440 Twips)
           right: 1440,
           bottom: 1440,
           left: 1440,
         },
       },
     };
- const extractBase64Data = (dataUri) => {
+    const extractBase64Data = (dataUri) => {
       const matches = dataUri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
         return matches[2];
       }
-      throw new Error('Invalid input string');
+      throw new Error("Invalid input string");
     };
 
     // Process images in HTML content
     const processedHtmlContent =
-  `<div style="line-height: 1.5;">` +
-  htmlContent
-    .replace(
-      /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g, // Process base64 images
-      (match, dataUri) => {
-        try {
-          const base64Data = extractBase64Data(dataUri);
-          // No need to decode and re-encode, just use the extracted base64 data
-          return `<img src="data:image/png;base64,${base64Data}">`;
-        } catch (error) {
-          console.error('Error processing base64 image:', error);
-          return match; // Return original img tag if processing fails
-        }
-      }
-    )
-    .replace(
-      /class="ql-align-(center|right|left|justify)"/g, // Convert alignment classes to inline style
-      (match, alignment) => `style="text-align: ${alignment};"`
-    ) +
-  `</div>`;
-    
-
-
+      `<div style="line-height: 1.5;">` +
+      htmlContent
+        .replace(
+          /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g, // Process base64 images
+          (match, dataUri) => {
+            try {
+              const base64Data = extractBase64Data(dataUri);
+              // No need to decode and re-encode, just use the extracted base64 data
+              return `<img src="data:image/png;base64,${base64Data}">`;
+            } catch (error) {
+              console.error("Error processing base64 image:", error);
+              return match; // Return original img tag if processing fails
+            }
+          }
+        )
+        .replace(
+          /class="ql-align-(center|right|left|justify)"/g, // Convert alignment classes to inline style
+          (match, alignment) => `style="text-align: ${alignment};"`
+        ) +
+      `</div>`;
 
     // Inject Nirmala UI font style directly into the HTML content
     const styledHtmlContent = `
@@ -149,11 +159,16 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
             </html>
         `;
 
-        // console.log('hi',styledHtmlContent)
+    // console.log('hi',styledHtmlContent)
 
-    convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(err => {
-      throw new ErrorHandler("Error during HTML to DOCX conversion: " + err.message, 500);
-    });
+    convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(
+      (err) => {
+        throw new ErrorHandler(
+          "Error during HTML to DOCX conversion: " + err.message,
+          500
+        );
+      }
+    );
   } else {
     throw new ErrorHandler("Invalid file type requested", 400);
   }
@@ -162,18 +177,18 @@ const fetchDocumentAndCreateZip = async (projectId, documentId, convertToFileTyp
   return { convertedFileBuffer, convertedFileName, pdfFilePath, name };
 };
 
-
 const htmlToPdf = async (htmlContent) => {
   let browser;
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
 
-    await page.setContent(`
+    await page.setContent(
+      `
       <html>
         <head>
           <style>
@@ -184,26 +199,27 @@ const htmlToPdf = async (htmlContent) => {
         </head>
         <body>${htmlContent}</body>
       </html>
-    `, { waitUntil: 'networkidle0' });
+    `,
+      { waitUntil: "networkidle0" }
+    );
 
     const pdfBuffer = await page.pdf({
-      format: 'Legal',
+      format: "Legal",
       margin: {
-        top: '25mm',
-        right: '25mm',
-        bottom: '25mm',
-        left: '25mm',
+        top: "25mm",
+        right: "25mm",
+        bottom: "25mm",
+        left: "25mm",
       },
     });
 
     // Log the generated buffer size
-    console.log('Generated PDF Buffer size:', pdfBuffer.length);
+    console.log("Generated PDF Buffer size:", pdfBuffer.length);
 
     // Explicitly convert to a Buffer instance
     return Buffer.from(pdfBuffer);
-
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    console.error("Error generating PDF:", error);
     throw error;
   } finally {
     if (browser) {
@@ -212,6 +228,4 @@ const htmlToPdf = async (htmlContent) => {
   }
 };
 
-
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
-
