@@ -278,5 +278,3 @@ exports.enableUser = async (req, res) => {
         res.status(500).send({ error: 'Failed to enable user' });
     }
 };
-
-

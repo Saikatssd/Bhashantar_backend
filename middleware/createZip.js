@@ -9,6 +9,7 @@ const htmlToDocx = require("html-to-docx");
 const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
+const JSZip = require("jszip");
 
 const fetchDocumentAndCreateZip = async (
   projectId,
@@ -169,6 +170,9 @@ const fetchDocumentAndCreateZip = async (
         );
       }
     );
+
+    // Apply legal page size
+    convertedFileBuffer = await applyLegalPageSize(convertedFileBuffer);
   } else {
     throw new ErrorHandler("Invalid file type requested", 400);
   }
@@ -226,6 +230,33 @@ const htmlToPdf = async (htmlContent) => {
       await browser.close();
     }
   }
+};
+
+/**
+ * applyLegalPageSize updates the DOCX (ZIP) file to use legal page dimensions.
+ * It searches for the tag <w:pgSz ...> in word/document.xml and changes the height.
+ *
+ * @param {Buffer} docxBuffer - The generated DOCX file buffer.
+ * @returns {Promise<Buffer>} - The updated DOCX file buffer.
+ */
+const applyLegalPageSize = async (docxBuffer) => {
+  // Load the DOCX buffer as a ZIP archive.
+  const zip = await JSZip.loadAsync(docxBuffer);
+  const documentXmlPath = "word/document.xml";
+  let documentXml = await zip.file(documentXmlPath).async("string");
+
+  // Replace the height attribute from 15840 (US Letter) to 20160 (US Legal)
+  // This regex assumes that w:w is 12240 and w:h is 15840
+  documentXml = documentXml.replace(
+    /(<w:pgSz\s+[^>]*w:w="12240"[^>]*w:h=")15840(")/,
+    "$1" + "20160" + "$2"
+  );
+
+  // Write back the modified XML to the ZIP archive.
+  zip.file(documentXmlPath, documentXml);
+
+  // Return the updated DOCX as a Buffer.
+  return await zip.generateAsync({ type: "nodebuffer" });
 };
 
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
