@@ -78,7 +78,7 @@ const fetchDocumentAndCreateZip = async (
       paragraphStyles: {
         spacing: {
           after: 120,
-          line: 240,
+          line: 360,
         },
       },
       defaultParagraphSeparator: "p",
@@ -171,8 +171,10 @@ const fetchDocumentAndCreateZip = async (
       }
     );
 
-    // Apply legal page size
-    convertedFileBuffer = await applyLegalPageSize(convertedFileBuffer);
+    // Post-process the DOCX to apply legal page size and enforce 1.5 line-height
+    convertedFileBuffer = await applyLegalPageSizeAndLineHeight(
+      convertedFileBuffer
+    );
   } else {
     throw new ErrorHandler("Invalid file type requested", 400);
   }
@@ -233,30 +235,69 @@ const htmlToPdf = async (htmlContent) => {
 };
 
 /**
- * applyLegalPageSize updates the DOCX (ZIP) file to use legal page dimensions.
- * It searches for the tag <w:pgSz ...> in word/document.xml and changes the height.
+ * Applies legal page size and hardcodes line-height to 1.5 for a DOCX file buffer.
+ *
+ * For legal page size, it modifies the <w:pgSz> element in word/document.xml by
+ * replacing w:h="15840" with w:h="20160" (when w:w="12240").
+ *
+ * To enforce a line-height of 1.5, it updates all <w:spacing> tags in document.xml,
+ * forcing w:line="360" and w:lineRule="auto", and also adjusts the "Normal" style in styles.xml.
  *
  * @param {Buffer} docxBuffer - The generated DOCX file buffer.
  * @returns {Promise<Buffer>} - The updated DOCX file buffer.
  */
-const applyLegalPageSize = async (docxBuffer) => {
-  // Load the DOCX buffer as a ZIP archive.
+async function applyLegalPageSizeAndLineHeight(docxBuffer) {
   const zip = await JSZip.loadAsync(docxBuffer);
+
+  // --- Update page size in word/document.xml ---
   const documentXmlPath = "word/document.xml";
   let documentXml = await zip.file(documentXmlPath).async("string");
 
-  // Replace the height attribute from 15840 (US Letter) to 20160 (US Legal)
-  // This regex assumes that w:w is 12240 and w:h is 15840
+  // Replace the page height from 15840 (US Letter) to 20160 (US Legal) if the width is 12240
   documentXml = documentXml.replace(
     /(<w:pgSz\s+[^>]*w:w="12240"[^>]*w:h=")15840(")/,
     "$1" + "20160" + "$2"
   );
 
-  // Write back the modified XML to the ZIP archive.
+  // Enforce a line-height of 1.5 (assuming single line is 240, so 240*1.5 = 360) in all spacing tags.
+  // We remove any existing w:line and w:lineRule attributes so we can add our own.
+  documentXml = documentXml.replace(
+    /<w:spacing([^>]*)\/>/g,
+    (_match, attrs) => {
+      let newAttrs = attrs.replace(/\bw:line="[^"]*"/g, "");
+      newAttrs = newAttrs.replace(/\bw:lineRule="[^"]*"/g, "");
+      // Append the desired line spacing attributes (360 for 1.5 line spacing)
+      return `<w:spacing${newAttrs} w:line="360" w:lineRule="auto"/>`;
+    }
+  );
+
+  // Write back the modified document.xml
   zip.file(documentXmlPath, documentXml);
 
-  // Return the updated DOCX as a Buffer.
+  // --- Update line spacing in styles.xml (for the standard "Normal" paragraph style) ---
+  const stylesXmlPath = "word/styles.xml";
+  if (zip.file(stylesXmlPath)) {
+    let stylesXml = await zip.file(stylesXmlPath).async("string");
+
+    // Modify the "Normal" style, which is commonly used for paragraphs.
+    // This regex searches for the Normal style and replaces any existing <w:spacing .../> tag.
+    stylesXml = stylesXml.replace(
+      /(<w:style\s+[^>]*w:styleId="Normal"[^>]*>[\s\S]*?<w:pPr>)([\s\S]*?)(<\/w:pPr>)/,
+      (match, start, inner, end) => {
+        // Remove any existing spacing tag
+        inner = inner.replace(/<w:spacing[^>]*\/>/g, "");
+        // Insert a spacing tag that forces 1.5 line spacing
+        const spacingTag = '<w:spacing w:line="360" w:lineRule="auto"/>';
+        return start + spacingTag + end;
+      }
+    );
+
+    // Write back the modified styles.xml
+    zip.file(stylesXmlPath, stylesXml);
+  }
+
+  // Generate the updated DOCX file buffer and return it
   return await zip.generateAsync({ type: "nodebuffer" });
-};
+}
 
 module.exports = { fetchDocumentAndCreateZip, htmlToPdf };
