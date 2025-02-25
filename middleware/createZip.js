@@ -10,6 +10,7 @@ const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
 const JSZip = require("jszip");
+const { JSDOM } = require("jsdom"); // Add this at the top of your file
 
 const fetchDocumentAndCreateZip = async (
   projectId,
@@ -62,6 +63,45 @@ const fetchDocumentAndCreateZip = async (
     /<hr\s+class="page-break"[^>]*>/gi,
     '<div style="page-break-after: always;"></div>'
   );
+
+  const dom = new JSDOM(htmlContent);
+  const document = dom.window.document;
+  const emTags = document.querySelectorAll("em");
+  emTags.forEach((tag) => {
+    // Create a new <span> for existing styles
+    const span = document.createElement("span");
+    const existingStyle = tag.getAttribute("style") || "";
+    if (existingStyle) {
+      span.setAttribute("style", existingStyle);
+    }
+
+    // Create an <i> tag for italics
+    const italicTag = document.createElement("i");
+    italicTag.innerHTML = tag.innerHTML;
+
+    // Nest the <i> tag inside the <span>
+    span.appendChild(italicTag);
+
+    // Replace the original <em> tag with the new <span>
+    tag.replaceWith(span);
+  });
+
+  // Process <strong> tags: replace with <span> and nested <strong>
+  const strongTags = document.querySelectorAll("strong");
+  strongTags.forEach((tag) => {
+    const span = document.createElement("span");
+    const existingStyle = tag.getAttribute("style") || "";
+    if (existingStyle) {
+      span.setAttribute("style", existingStyle);
+    }
+    const boldTag = document.createElement("strong");
+    boldTag.innerHTML = tag.innerHTML;
+    span.appendChild(boldTag);
+    tag.replaceWith(span);
+  });
+
+  // Update the htmlContent with the modified DOM
+  htmlContent = document.body.innerHTML;
 
   let convertedFileBuffer;
   let convertedFileName;
@@ -178,7 +218,6 @@ const fetchDocumentAndCreateZip = async (
   } else {
     throw new ErrorHandler("Invalid file type requested", 400);
   }
-
   // Return the converted file buffer, name, and original PDF path
   return { convertedFileBuffer, convertedFileName, pdfFilePath, name };
 };
