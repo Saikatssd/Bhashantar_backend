@@ -66,6 +66,38 @@ const fetchDocumentAndCreateZip = async (
 
   const dom = new JSDOM(htmlContent);
   const document = dom.window.document;
+
+  // Process tables to ensure they have explicit borders for MS Word
+  const tables = document.querySelectorAll('table');
+  tables.forEach(table => {
+    // Add border-collapse and full width
+    table.setAttribute('style', 'border-collapse: collapse; width: 100%; border: 1px solid black;');
+    // Process all table rows
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+      row.setAttribute('style', 'border: 1px solid black;');
+      // Process all cells in this row
+      const cells = row.querySelectorAll('td');
+      cells.forEach(cell => {
+        // Add explicit border styling to each cell with !important to override other styles
+        const existingStyle = cell.getAttribute('style') || '';
+        cell.setAttribute('style', `${existingStyle}; border: 1px solid black !important;`);
+      });
+    });
+  });
+  // Add explicit table CSS to the head
+  const head = document.querySelector('head') || document.createElement('head');
+  const tableStyle = document.createElement('style');
+  tableStyle.textContent = `
+    table { border-collapse: collapse; width: 100%; border: 1px solid black; }
+    table tr { border: 1px solid black; }
+    table td { border: 1px solid black; padding: 4px; }
+  `;
+  head.appendChild(tableStyle);
+  if (!document.querySelector('head')) {
+    document.documentElement.insertBefore(head, document.body);
+  }
+
   const emTags = document.querySelectorAll("em");
   emTags.forEach((tag) => {
     // Create a new <span> for existing styles
@@ -101,7 +133,7 @@ const fetchDocumentAndCreateZip = async (
   });
 
   // Update the htmlContent with the modified DOM
-  htmlContent = document.body.innerHTML;
+  htmlContent = document.documentElement.outerHTML;
 
   let convertedFileBuffer;
   let convertedFileName;
