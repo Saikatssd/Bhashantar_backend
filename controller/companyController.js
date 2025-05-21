@@ -58,9 +58,10 @@ exports.getCompanyUsers = async (req, res) => {
         const usersSnapshot = await usersRef.get();
 
         const users = usersSnapshot.docs.map(doc => ({
+            ...doc.data(),
             uid: doc.id,
-            email: doc.data().email,
-            role: doc.data().role,
+            // email: doc.data().email,
+            // role: doc.data().role,
             // companyId: companyId,
         }));
 

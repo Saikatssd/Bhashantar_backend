@@ -68,33 +68,39 @@ const fetchDocumentAndCreateZip = async (
   const document = dom.window.document;
 
   // Process tables to ensure they have explicit borders for MS Word
-  const tables = document.querySelectorAll('table');
-  tables.forEach(table => {
+  const tables = document.querySelectorAll("table");
+  tables.forEach((table) => {
     // Add border-collapse and full width
-    table.setAttribute('style', 'border-collapse: collapse; width: 100%; border: 1px solid black;');
+    table.setAttribute(
+      "style",
+      "border-collapse: collapse; width: 100%; border: 1px solid black;"
+    );
     // Process all table rows
-    const rows = table.querySelectorAll('tr');
-    rows.forEach(row => {
-      row.setAttribute('style', 'border: 1px solid black;');
+    const rows = table.querySelectorAll("tr");
+    rows.forEach((row) => {
+      row.setAttribute("style", "border: 1px solid black;");
       // Process all cells in this row
-      const cells = row.querySelectorAll('td');
-      cells.forEach(cell => {
+      const cells = row.querySelectorAll("td");
+      cells.forEach((cell) => {
         // Add explicit border styling to each cell with !important to override other styles
-        const existingStyle = cell.getAttribute('style') || '';
-        cell.setAttribute('style', `${existingStyle}; border: 1px solid black !important;`);
+        const existingStyle = cell.getAttribute("style") || "";
+        cell.setAttribute(
+          "style",
+          `${existingStyle}; border: 1px solid black !important;`
+        );
       });
     });
   });
   // Add explicit table CSS to the head
-  const head = document.querySelector('head') || document.createElement('head');
-  const tableStyle = document.createElement('style');
+  const head = document.querySelector("head") || document.createElement("head");
+  const tableStyle = document.createElement("style");
   tableStyle.textContent = `
     table { border-collapse: collapse; width: 100%; border: 1px solid black; }
     table tr { border: 1px solid black; }
     table td { border: 1px solid black; padding: 4px; }
   `;
   head.appendChild(tableStyle);
-  if (!document.querySelector('head')) {
+  if (!document.querySelector("head")) {
     document.documentElement.insertBefore(head, document.body);
   }
 
@@ -154,7 +160,12 @@ const fetchDocumentAndCreateZip = async (
         },
       },
       defaultParagraphSeparator: "p",
-      font: "Nirmala UI",
+      fonts: [
+        {
+          name: "Nirmala UI",
+          fallback: "sans-serif",
+        },
+      ],
       fontSize: 12,
       bold: true,
       italic: true,
@@ -200,7 +211,8 @@ const fetchDocumentAndCreateZip = async (
         .replace(
           /class="ql-align-(center|right|left|justify)"/g, // Convert alignment classes to inline style
           (match, alignment) => `style="text-align: ${alignment};"`
-        ) +
+        )
+        .replace(/font-family:\s*nirmala-ui/gi, "font-family: Nirmala UI") +
       `</div>`;
 
     // Inject Nirmala UI font style directly into the HTML content
@@ -232,7 +244,7 @@ const fetchDocumentAndCreateZip = async (
             </html>
         `;
 
-    // console.log('hi',styledHtmlContent)
+    // console.log("html content : ", styledHtmlContent);
 
     convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(
       (err) => {
@@ -291,7 +303,7 @@ const htmlToPdf = async (htmlContent) => {
     });
 
     // Log the generated buffer size
-    console.log("Generated PDF Buffer size:", pdfBuffer.length);
+    // console.log("Generated PDF Buffer size:", pdfBuffer.length);
 
     // Explicitly convert to a Buffer instance
     return Buffer.from(pdfBuffer);
