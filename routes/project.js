@@ -4,6 +4,7 @@ const checkPermission = require('../middleware/checkPermission')
 const ErrorHandler = require('../utils/errorHandler');
 const router = express.Router();
 const projectController = require('../controller/projectController')
+const verifyToken = require('../middleware/verifyToken');
 
 // Endpoint to create new project
 router.post('/createProject', projectController.createProject);
@@ -17,5 +18,11 @@ router.get('/:companyId/getProjects',projectController.getProjects);
 //delete project
 router.delete('/deleteProject',projectController.deleteProject);
 
+router.get("/:projectId/user-wip-count",verifyToken, projectController.fetchUserWIPCount);
+router.get("/files/inProgress",verifyToken, projectController.kyroUserWorkInProgress);
+router.get("/files/completed",verifyToken, projectController.kyroUserCompletedFiles);
+
+router.get("/files/clientInProgress",verifyToken, projectController.clientUserWorkInProgress);
+router.get("/files/clientCompleted",verifyToken, projectController.clientUserCompletedFiles);
 
 module.exports = router;
