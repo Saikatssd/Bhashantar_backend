@@ -290,8 +290,8 @@ exports.clientUserWorkInProgress = async (req, res) => {
   const uid = req.user.uid;
   const snapshot = await db
     .collectionGroup("files")
-    .where("status", "==", 3)
-    .where("kyro_assignedTo", "==", uid)
+    .where("status", "==", 6)
+    .where("client_assignedTo", "==", uid)
     .get();
 
   const files = await Promise.all(
@@ -303,7 +303,7 @@ exports.clientUserWorkInProgress = async (req, res) => {
         id: doc.id,
          ...doc.data(),
         pageCount: data.pageCount,
-        kyro_assignedDate: data.kyro_assignedDate,
+        client_assignedDate: data.client_assignedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
       };
     })
@@ -318,8 +318,8 @@ exports.clientUserCompletedFiles = async (req, res) => {
   const uid = req.user.uid;
   const snapshot = await db
     .collectionGroup("files")
-    .where("status", ">=", 4)
-    .where("kyro_assignedTo", "==", uid)
+    .where("status", ">=", 7)
+    .where("client_assignedTo", "==", uid)
     .get();
 
   const files = await Promise.all(
@@ -331,11 +331,106 @@ exports.clientUserCompletedFiles = async (req, res) => {
         id: doc.id,
          ...doc.data(),
         pageCount: data.pageCount,
-        kyro_completedDate: data.kyro_completedDate,
+        client_completedDate: data.client_completedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
       };
     })
   );
 
   res.json(files);
+};
+
+
+
+
+/**
+ * GET /api/user/projects-count
+ * Query parameters (as ISO strings):
+ *   - startDate    (e.g. "2025-01-01T00:00:00.000Z")
+ *   - endDate      (e.g. "2025-12-31T23:59:59.999Z")
+ *
+ * The authenticated user’s UID is in req.user.uid (via authMiddleware).
+ * This function runs a single collectionGroup query on all "files" subcollections,
+ * filters by kyro_assignedTo === req.user.uid and status in [3..8], and then
+ * tallies pending (status===3), underReview (status===4), and completed (>=5),
+ * only counting “underReview/completed” if kyro_completedDate ∈ [startDate, endDate].
+ */
+exports.getUserFileCount = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { startDate, endDate } = req.query;
+
+    // Validate incoming dates
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "startDate and endDate are required." });
+    }
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: "Invalid date format." });
+    }
+
+    // 1) Build one collectionGroup query across all "files" subcollections
+    //    Filtering: kyro_assignedTo == current user AND status in [3,4,5,6,7,8]
+
+    const filesGroupRef = db.collectionGroup("files");
+    const filesQuery = filesGroupRef
+      .where("kyro_assignedTo", "==", userId)
+      .where("status", "in", [3, 4, 5, 6, 7, 8]);
+
+    // 2) Fetch all matching file documents in ONE network round‐trip
+    const snapshot = await filesQuery.get();
+
+    // 3) Tally up counts & pages
+    let pendingCount = 0;
+    let underReviewCount = 0;
+    let completedCount = 0;
+    let pendingPages = 0;
+    let underReviewPages = 0;
+    let completedPages = 0;
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const status = data.status;
+      const pages = data.pageCount || 0;
+
+      // status===3 → pending (in WIP)
+      if (status === 3) {
+        pendingCount += 1;
+        pendingPages += pages;
+      }
+
+      // For “under review” (4) or “completed” (>=5), only include if completedDate in range
+      if (data.kyro_completedDate) {
+        // If kyro_completedDate is a Firestore Timestamp, convert to JS Date:
+        const completedTs = typeof data.kyro_completedDate.toDate === "function"
+          ? data.kyro_completedDate.toDate()
+          : new Date(data.kyro_completedDate);
+
+        if (completedTs >= start && completedTs <= end) {
+          if (status === 4) {
+            underReviewCount += 1;
+            underReviewPages += pages;
+          } else if (status >= 5) {
+            completedCount += 1;
+            completedPages += pages;
+          }
+        }
+      }
+    });
+
+    // 4) Zero-pad each count/page value to two digits
+    const pad2 = (n) => (n > 9 ? `${n}` : `0${n}`);
+    return res.json({
+      pendingCount: pad2(pendingCount),
+      completedCount: pad2(completedCount),
+      underReviewCount: pad2(underReviewCount),
+      pendingPages: pad2(pendingPages),
+      completedPages: pad2(completedPages),
+      underReviewPages: pad2(underReviewPages),
+    });
+  } catch (err) {
+    console.error("Error in getUserProjectsCount:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
 };

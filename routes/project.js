@@ -25,4 +25,7 @@ router.get("/files/completed",verifyToken, projectController.kyroUserCompletedFi
 router.get("/files/clientInProgress",verifyToken, projectController.clientUserWorkInProgress);
 router.get("/files/clientCompleted",verifyToken, projectController.clientUserCompletedFiles);
 
+
+router.get("/user/fileCount", verifyToken, projectController.getUserFileCount);
+
 module.exports = router;
