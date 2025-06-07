@@ -213,12 +213,9 @@ exports.deleteProject = async (req, res, next) => {
 
 // app.get('/api/projects/:projectId/user-wip-count',
 exports.fetchUserWIPCount = async (req, res) => {
-  const { projectId } = req.params;
   const userId = req.user.uid;
   const snapshot = await db
-    .collection('projects')
-    .doc(projectId)
-    .collection('files')
+    .collectionGroup('files')
     .where('status', '==', 3)
     .where('kyro_assignedTo', '==', userId)
     .limit(1)
