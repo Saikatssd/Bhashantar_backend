@@ -9,6 +9,7 @@ const companyRoutes = require("./routes/company");
 const documentRoutes = require("./routes/document");
 const folderRoutes = require("./routes/folder");
 const permissionRoutes = require("./routes/permission");
+const trackFileRoutes = require("./routes/trackFile");
 const path = require("path");
 const { Storage } = require("@google-cloud/storage");
 
@@ -49,6 +50,7 @@ app.use("/api/project", projectRoutes);
 app.use("/api/document", documentRoutes);
 app.use("/api/folder", folderRoutes);
 app.use("/api/permission", permissionRoutes);
+app.use("/api/track", trackFileRoutes); 
 
 app.use(errorMiddleware);
 
