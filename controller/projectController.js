@@ -1,8 +1,7 @@
-const express = require('express');
-const { db } = require('../firebaseAdmin');
-const checkPermission = require('../middleware/checkPermission')
-const ErrorHandler = require('../utils/errorHandler');
-
+const express = require("express");
+const { db } = require("../firebaseAdmin");
+const checkPermission = require("../middleware/checkPermission");
+const ErrorHandler = require("../utils/errorHandler");
 
 // Endpoint to create new project
 // exports.createProject = async (req, res, next) => {
@@ -56,49 +55,52 @@ const ErrorHandler = require('../utils/errorHandler');
 //     }
 // };
 
-
 exports.createProject = async (req, res, next) => {
-  const { name, companyId, parentId } = req.body
+  const { name, companyId, parentId } = req.body;
 
   // Check if the name is empty
   if (!name || name.trim() === "") {
-    return next(new ErrorHandler("Project name cannot be empty", 400))
+    return next(new ErrorHandler("Project name cannot be empty", 400));
   }
 
   try {
-    const companyRef = db.collection("companies").doc(companyId)
-    const companySnapshot = await companyRef.get()
+    const companyRef = db.collection("companies").doc(companyId);
+    const companySnapshot = await companyRef.get();
 
     // Check if the company exists
     if (!companySnapshot.exists) {
-      return next(new ErrorHandler("Company Not Found", 400))
+      return next(new ErrorHandler("Company Not Found", 400));
     }
 
     // Normalize the name to lowercase for case-insensitive comparison
-    const normalizedName = name.trim().toLowerCase()
+    const normalizedName = name.trim().toLowerCase();
 
     // Fetch all projects in the company
-    const projectsRef = db.collection("projects")
-    let projectQuery = projectsRef.where("companyId", "==", companyId)
+    const projectsRef = db.collection("projects");
+    let projectQuery = projectsRef.where("companyId", "==", companyId);
 
     // If parentId is provided, add it to the query
     if (parentId) {
-      projectQuery = projectQuery.where("parentId", "==", parentId)
+      projectQuery = projectQuery.where("parentId", "==", parentId);
     } else {
-      projectQuery = projectQuery.where("parentId", "==", null)
+      projectQuery = projectQuery.where("parentId", "==", null);
     }
 
-    const projectQuerySnapshot = await projectQuery.get()
+    const projectQuerySnapshot = await projectQuery.get();
 
     // Check for a case-insensitive name match
-    const nameExists = projectQuerySnapshot.docs.some((doc) => doc.data().name.trim().toLowerCase() === normalizedName)
+    const nameExists = projectQuerySnapshot.docs.some(
+      (doc) => doc.data().name.trim().toLowerCase() === normalizedName
+    );
 
     if (nameExists) {
-      return next(new ErrorHandler("Project name already exists at this level", 400))
+      return next(
+        new ErrorHandler("Project name already exists at this level", 400)
+      );
     }
 
     // Create the new project
-    const projectRef = projectsRef.doc()
+    const projectRef = projectsRef.doc();
     await projectRef.set({
       id: projectRef.id,
       name: name.trim(),
@@ -106,16 +108,17 @@ exports.createProject = async (req, res, next) => {
       parentId: parentId || null,
       isFolder: true,
       createdAt: new Date(),
-    })
+    });
 
-    res.status(201).send({ name: name.trim(), id: projectRef.id, parentId: parentId || null })
+    res.status(201).send({
+      name: name.trim(),
+      id: projectRef.id,
+      parentId: parentId || null,
+    });
   } catch (error) {
-    next(error)
-    res.status(400).send(error)
+    next(new ErrorHandler("Error creating project: " + error.message, 500));
   }
-}
-
-
+};
 
 // Endpoint to edit/rename a project
 exports.editProject = async (req, res, next) => {
@@ -127,7 +130,7 @@ exports.editProject = async (req, res, next) => {
   }
 
   try {
-    const projectRef = db.collection('projects').doc(id);
+    const projectRef = db.collection("projects").doc(id);
     const projectSnapshot = await projectRef.get();
 
     // Check if the project exists
@@ -141,14 +144,16 @@ exports.editProject = async (req, res, next) => {
     const normalizedNewName = newName.trim().toLowerCase();
 
     // Fetch all projects in the company except the current project
-    const projectsRef = db.collection('projects');
+    const projectsRef = db.collection("projects");
     const projectQuery = await projectsRef
-      .where('companyId', '==', companyId)
+      .where("companyId", "==", companyId)
       .get();
 
     // Check for a case-insensitive name match within the same company, excluding the current project
-    const nameExists = projectQuery.docs.some(doc =>
-      doc.id !== id && doc.data().name.trim().toLowerCase() === normalizedNewName
+    const nameExists = projectQuery.docs.some(
+      (doc) =>
+        doc.id !== id &&
+        doc.data().name.trim().toLowerCase() === normalizedNewName
     );
 
     if (nameExists) {
@@ -162,27 +167,170 @@ exports.editProject = async (req, res, next) => {
 
     res.status(200).send({ message: "Project renamed successfully", id });
   } catch (error) {
-    next(new ErrorHandler('Error editing Project: ' + error.message, 500));
+    next(new ErrorHandler("Error editing Project: " + error.message, 500));
   }
 };
-
-
 
 // Endpoint to fetch projects for a company
 exports.getProjects = async (req, res, next) => {
   const { companyId } = req.params;
   try {
-    const companyRef = db.collection('companies').doc(companyId);
+    const companyRef = db.collection("companies").doc(companyId);
     const companySnapshot = await companyRef.get();
     if (!companySnapshot.exists) {
       return next(new ErrorHandler("Company Not Found", 400));
     }
-    const projectsSnapshot = await db.collection('projects').where('companyId', '==', companyId).get();
-    const projects = projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.status(200).send(projects);
+
+    // Fetch projects and their notification counts simultaneously
+    const projectsWithNotifications = await getProjectsWithNotifications(
+      companyId
+    );
+
+    res.status(200).send(projectsWithNotifications);
   } catch (error) {
-    next(error);
-    res.status(400).send(error);
+    next(new ErrorHandler("Error fetching projects: " + error.message, 500));
+  }
+};
+
+// Helper function to get projects with notification counts for status 2 files
+const getProjectsWithNotifications = async (companyId) => {
+  try {
+    // Fetch all projects for the company
+    const projectsSnapshot = await db
+      .collection("projects")
+      .where("companyId", "==", companyId)
+      .get();
+    const projects = projectsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Fetch notification counts for each project individually to avoid collectionGroup query issues
+    const projectsWithNotifications = await Promise.all(
+      projects.map(async (project) => {
+        try {
+          // Query files with status 2 for this specific project
+          const filesSnapshot = await db
+            .collection("projects")
+            .doc(project.id)
+            .collection("files")
+            .where("status", "==", 2)
+            .get();
+
+          const notificationCount = filesSnapshot.size;
+
+          return {
+            ...project,
+            notificationCount,
+          };
+        } catch (error) {
+          console.error(
+            `Error fetching files for project ${project.id}:`,
+            error
+          );
+          // Return project with 0 notifications if there's an error
+          return {
+            ...project,
+            notificationCount: 0,
+          };
+        }
+      })
+    );
+
+    return projectsWithNotifications;
+  } catch (error) {
+    console.error("Error fetching projects with notifications:", error);
+    throw error;
+  }
+};
+
+// New endpoint to get projects with detailed notification information
+exports.getProjectsWithNotifications = async (req, res, next) => {
+  const { companyId } = req.params;
+  try {
+    const companyRef = db.collection("companies").doc(companyId);
+    const companySnapshot = await companyRef.get();
+    if (!companySnapshot.exists) {
+      return next(new ErrorHandler("Company Not Found", 400));
+    }
+
+    const projectsWithNotifications = await getProjectsWithNotifications(
+      companyId
+    );
+    res.status(200).send(projectsWithNotifications);
+  } catch (error) {
+    next(
+      new ErrorHandler(
+        "Error fetching projects with notifications: " + error.message,
+        500
+      )
+    );
+  }
+};
+
+// New endpoint to get notification counts for status 2 files across all projects
+exports.getNotificationCounts = async (req, res, next) => {
+  const { companyId } = req.params;
+  try {
+    const companyRef = db.collection("companies").doc(companyId);
+    const companySnapshot = await companyRef.get();
+    if (!companySnapshot.exists) {
+      return next(new ErrorHandler("Company Not Found", 400));
+    }
+
+    // Get all projects for the company first
+    const projectsSnapshot = await db
+      .collection("projects")
+      .where("companyId", "==", companyId)
+      .get();
+
+    const projects = projectsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Fetch notification counts for each project individually
+    const projectNotificationCounts = {};
+    let totalNotifications = 0;
+
+    await Promise.all(
+      projects.map(async (project) => {
+        try {
+          // Query files with status 2 for this specific project
+          const filesSnapshot = await db
+            .collection("projects")
+            .doc(project.id)
+            .collection("files")
+            .where("status", "==", 2)
+            .get();
+
+          const count = filesSnapshot.size;
+          if (count > 0) {
+            projectNotificationCounts[project.id] = count;
+            totalNotifications += count;
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching files for project ${project.id}:`,
+            error
+          );
+          // Skip this project if there's an error
+        }
+      })
+    );
+
+    res.status(200).json({
+      projectCounts: projectNotificationCounts,
+      totalNotifications,
+      projectsWithNotifications: Object.keys(projectNotificationCounts).length,
+    });
+  } catch (error) {
+    next(
+      new ErrorHandler(
+        "Error fetching notification counts: " + error.message,
+        500
+      )
+    );
   }
 };
 
@@ -192,37 +340,34 @@ exports.deleteProject = async (req, res, next) => {
   // console.log("Received ID:", id)
 
   try {
-    const docRef = db.collection('projects').doc(id);
+    const docRef = db.collection("projects").doc(id);
     // console.log("Document Reference Path:", docRef.path);
 
     const project = await docRef.get();
     // console.log("Project Exists:", project.exists);
 
     if (!project.exists) {
-      return next(new ErrorHandler('Project not found', 404));
+      return next(new ErrorHandler("Project not found", 404));
     }
 
     await docRef.delete();
-    res.status(200).send('Project deleted successfully');
+    res.status(200).send("Project deleted successfully");
   } catch (error) {
-    next(new ErrorHandler('Error deleting Project: ' + error.message, 500));
+    next(new ErrorHandler("Error deleting Project: " + error.message, 500));
   }
 };
-
-
 
 // app.get('/api/projects/:projectId/user-wip-count',
 exports.fetchUserWIPCount = async (req, res) => {
   const userId = req.user.uid;
   const snapshot = await db
-    .collectionGroup('files')
-    .where('status', '==', 3)
-    .where('kyro_assignedTo', '==', userId)
+    .collectionGroup("files")
+    .where("status", "==", 3)
+    .where("kyro_assignedTo", "==", userId)
     .limit(1)
     .get();
   res.json({ count: snapshot.size });
 };
-
 
 exports.kyroUserWorkInProgress = async (req, res) => {
   const uid = req.user.uid;
@@ -235,11 +380,11 @@ exports.kyroUserWorkInProgress = async (req, res) => {
   const files = await Promise.all(
     snapshot.docs.map(async (doc) => {
       const data = doc.data();
-      const projectRef = doc.ref.parent.parent;      
+      const projectRef = doc.ref.parent.parent;
       const projSnap = await projectRef.get();
       return {
         id: doc.id,
-         ...doc.data(),
+        ...doc.data(),
         pageCount: data.pageCount,
         kyro_assignedDate: data.kyro_assignedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
@@ -249,8 +394,6 @@ exports.kyroUserWorkInProgress = async (req, res) => {
 
   res.json(files);
 };
-
-
 
 exports.kyroUserCompletedFiles = async (req, res) => {
   const uid = req.user.uid;
@@ -267,7 +410,7 @@ exports.kyroUserCompletedFiles = async (req, res) => {
       const projSnap = await projectRef.get();
       return {
         id: doc.id,
-         ...doc.data(),
+        ...doc.data(),
         pageCount: data.pageCount,
         kyro_completedDate: data.kyro_completedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
@@ -277,11 +420,6 @@ exports.kyroUserCompletedFiles = async (req, res) => {
 
   res.json(files);
 };
-
-
-
-
-
 
 exports.clientUserWorkInProgress = async (req, res) => {
   const uid = req.user.uid;
@@ -294,11 +432,11 @@ exports.clientUserWorkInProgress = async (req, res) => {
   const files = await Promise.all(
     snapshot.docs.map(async (doc) => {
       const data = doc.data();
-      const projectRef = doc.ref.parent.parent;      
+      const projectRef = doc.ref.parent.parent;
       const projSnap = await projectRef.get();
       return {
         id: doc.id,
-         ...doc.data(),
+        ...doc.data(),
         pageCount: data.pageCount,
         client_assignedDate: data.client_assignedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
@@ -308,8 +446,6 @@ exports.clientUserWorkInProgress = async (req, res) => {
 
   res.json(files);
 };
-
-
 
 exports.clientUserCompletedFiles = async (req, res) => {
   const uid = req.user.uid;
@@ -326,7 +462,7 @@ exports.clientUserCompletedFiles = async (req, res) => {
       const projSnap = await projectRef.get();
       return {
         id: doc.id,
-         ...doc.data(),
+        ...doc.data(),
         pageCount: data.pageCount,
         client_completedDate: data.client_completedDate,
         projectName: projSnap.exists ? projSnap.data().name : "Unknown",
@@ -336,9 +472,6 @@ exports.clientUserCompletedFiles = async (req, res) => {
 
   res.json(files);
 };
-
-
-
 
 /**
  * GET /api/user/projects-count
@@ -359,7 +492,9 @@ exports.getUserFileCount = async (req, res) => {
 
     // Validate incoming dates
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: "startDate and endDate are required." });
+      return res
+        .status(400)
+        .json({ error: "startDate and endDate are required." });
     }
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -400,9 +535,10 @@ exports.getUserFileCount = async (req, res) => {
       // For “under review” (4) or “completed” (>=5), only include if completedDate in range
       if (data.kyro_completedDate) {
         // If kyro_completedDate is a Firestore Timestamp, convert to JS Date:
-        const completedTs = typeof data.kyro_completedDate.toDate === "function"
-          ? data.kyro_completedDate.toDate()
-          : new Date(data.kyro_completedDate);
+        const completedTs =
+          typeof data.kyro_completedDate.toDate === "function"
+            ? data.kyro_completedDate.toDate()
+            : new Date(data.kyro_completedDate);
 
         if (completedTs >= start && completedTs <= end) {
           if (status === 4) {
