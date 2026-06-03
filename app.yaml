@@ -3,7 +3,7 @@ entrypoint: npm start
 
 env: standard
 
-instance_class : F4
+instance_class: F2
 
 env_variables:
   NODE_ENV: production
@@ -27,8 +27,7 @@ env_variables:
   # FRONTEND_URL: http://localhost:5173
   # FRONTEND_URL: https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com
   FRONTEND_URL: https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com
-  # PUPPETEER_EXECUTABLE_PATH: "C:\\"
-  PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+  # PUPPETEER_EXECUTABLE_PATH can be set only if the runtime provides a custom Chrome binary.
 
 
 handlers:

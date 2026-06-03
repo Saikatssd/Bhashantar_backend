@@ -105,6 +105,8 @@ exports.createProject = async (req, res, next) => {
       id: projectRef.id,
       name: name.trim(),
       companyId,
+      // languageCode: languageCode || 'ben_Beng',
+      languageCode: 'ben_Beng',
       parentId: parentId || null,
       isFolder: true,
       createdAt: new Date(),
@@ -192,10 +194,15 @@ exports.getProjects = async (req, res, next) => {
   }
 };
 
-// Helper function to get projects with notification counts for status 2 files
 const getProjectsWithNotifications = async (companyId) => {
   try {
-    // Fetch all projects for the company
+    const companySnapshot = await db
+      .collection("companies")
+      .doc(companyId)
+      .get();
+    const companyData = companySnapshot.data();
+    const notificationStatus = companyData?.name === "Kyrotics" ? 2 : 5;
+
     const projectsSnapshot = await db
       .collection("projects")
       .where("companyId", "==", companyId)
@@ -205,19 +212,18 @@ const getProjectsWithNotifications = async (companyId) => {
       ...doc.data(),
     }));
 
-    // Fetch notification counts for each project individually to avoid collectionGroup query issues
     const projectsWithNotifications = await Promise.all(
       projects.map(async (project) => {
         try {
-          // Query files with status 2 for this specific project
-          const filesSnapshot = await db
+          const filesCountSnapshot = await db
             .collection("projects")
             .doc(project.id)
             .collection("files")
-            .where("status", "==", 2)
+            .where("status", "==", notificationStatus)
+            .count()
             .get();
 
-          const notificationCount = filesSnapshot.size;
+          const notificationCount = filesCountSnapshot.data().count;
 
           return {
             ...project,
@@ -228,7 +234,6 @@ const getProjectsWithNotifications = async (companyId) => {
             `Error fetching files for project ${project.id}:`,
             error
           );
-          // Return project with 0 notifications if there's an error
           return {
             ...project,
             notificationCount: 0,
@@ -268,7 +273,7 @@ exports.getProjectsWithNotifications = async (req, res, next) => {
   }
 };
 
-// New endpoint to get notification counts for status 2 files across all projects
+// New endpoint to get notification counts for notification-status files across all projects
 exports.getNotificationCounts = async (req, res, next) => {
   const { companyId } = req.params;
   try {
@@ -277,6 +282,9 @@ exports.getNotificationCounts = async (req, res, next) => {
     if (!companySnapshot.exists) {
       return next(new ErrorHandler("Company Not Found", 400));
     }
+
+    const companyData = companySnapshot.data();
+    const notificationStatus = companyData?.name === "Kyrotics" ? 2 : 5;
 
     // Get all projects for the company first
     const projectsSnapshot = await db
@@ -296,15 +304,15 @@ exports.getNotificationCounts = async (req, res, next) => {
     await Promise.all(
       projects.map(async (project) => {
         try {
-          // Query files with status 2 for this specific project
-          const filesSnapshot = await db
+          const filesCountSnapshot = await db
             .collection("projects")
             .doc(project.id)
             .collection("files")
-            .where("status", "==", 2)
+            .where("status", "==", notificationStatus)
+            .count()
             .get();
 
-          const count = filesSnapshot.size;
+          const count = filesCountSnapshot.data().count;
           if (count > 0) {
             projectNotificationCounts[project.id] = count;
             totalNotifications += count;

@@ -253,3 +253,166 @@ exports.fetchSubmissionHistory = async (req, res, next) => {
     next(error);
   }
 };
+
+// Submit feedback for a document (creates entry in feedbacks collection)
+exports.submitFeedback = async (req, res, next) => {
+  const { projectId, documentId, fileName, userId, companyId, qualityRating, reason, notes } = req.body;
+
+  try {
+    // Validate required fields
+    if (!projectId || !documentId || !fileName || !userId || !companyId || !qualityRating) {
+      return next(
+        new ErrorHandler(
+          "Missing required fields: projectId, documentId, fileName, userId, companyId, qualityRating",
+          400
+        )
+      );
+    }
+
+    // Validate quality rating value
+    const validRatings = ["good", "poor", "average", "outstanding"];
+    if (!validRatings.includes(qualityRating)) {
+      return next(
+        new ErrorHandler(
+          "Invalid qualityRating value. Must be one of: good, poor, average, outstanding",
+          400
+        )
+      );
+    }
+
+    // Validate reason for poor/average
+    if ((qualityRating === "poor" || qualityRating === "average") && (!reason || !reason.trim())) {
+      return next(
+        new ErrorHandler(
+          "Reason is required when qualityRating is poor or average",
+          400
+        )
+      );
+    }
+
+    // Check if project exists
+    const projectRef = db.collection("projects").doc(projectId);
+    const projectSnapshot = await projectRef.get();
+    if (!projectSnapshot.exists) {
+      return next(new ErrorHandler("Project not found", 400));
+    }
+
+    // Check if document exists
+    const documentRef = db
+      .collection("projects")
+      .doc(projectId)
+      .collection("files")
+      .doc(documentId);
+    const documentSnapshot = await documentRef.get();
+    if (!documentSnapshot.exists) {
+      return next(new ErrorHandler("Document not found", 400));
+    }
+
+    // Record feedback in feedbacks collection
+    const feedbackCollection = db.collection("feedbacks");
+    const feedbackDoc = {
+      projectId,
+      documentId,
+      fileName,
+      userId,
+      companyId,
+      qualityRating,
+      reason: (qualityRating === "poor" || qualityRating === "average") ? reason.trim() : "",
+      notes: notes || "",
+      status: "pending",
+      submittedAt: new Date(),
+    };
+
+    const feedbackRef = await feedbackCollection.add(feedbackDoc);
+
+    res.status(201).send({
+      success: true,
+      message: "Feedback submitted successfully",
+      feedbackId: feedbackRef.id,
+      ...feedbackDoc,
+    });
+  } catch (error) {
+    console.error("Error submitting feedback:", error);
+    next(error);
+  }
+};
+
+// Fetch feedbacks for a company (Kyrotics sees all feedbacks)
+exports.fetchFeedbacks = async (req, res, next) => {
+  const { companyId } = req.query;
+
+  try {
+    const feedbackCollection = db.collection("feedbacks");
+    let query = feedbackCollection;
+
+    if (companyId) {
+      // Check if company is Kyrotics
+      const companyRef = db.collection("companies").doc(companyId);
+      const companySnapshot = await companyRef.get();
+
+      if (companySnapshot.exists) {
+        const companyData = companySnapshot.data();
+        if (companyData.name !== "Kyrotics") {
+          query = query.where("companyId", "==", companyId);
+        }
+      }
+    }
+
+    const feedbackSnapshot = await query.get();
+    const feedbacks = feedbackSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      submittedAt: doc.data().submittedAt ? doc.data().submittedAt.toDate() : null,
+    }));
+
+    // Sort in memory by submittedAt descending to avoid composite index requirement
+    feedbacks.sort((a, b) => {
+      const dateA = a.submittedAt ? new Date(a.submittedAt) : 0;
+      const dateB = b.submittedAt ? new Date(b.submittedAt) : 0;
+      return dateB - dateA;
+    });
+
+    res.status(200).send(feedbacks);
+  } catch (error) {
+    console.error("Error fetching feedbacks:", error);
+    next(error);
+  }
+};
+
+// Update feedback status
+exports.updateFeedbackStatus = async (req, res, next) => {
+  const { feedbackId, status } = req.body;
+
+  try {
+    if (!feedbackId || !status) {
+      return next(new ErrorHandler("Missing feedbackId or status", 400));
+    }
+
+    const validStatuses = ["pending", "reviewed", "under_review", "resolved"];
+    if (!validStatuses.includes(status.toLowerCase())) {
+      return next(new ErrorHandler("Invalid status value", 400));
+    }
+
+    const feedbackRef = db.collection("feedbacks").doc(feedbackId);
+    const feedbackDoc = await feedbackRef.get();
+
+    if (!feedbackDoc.exists) {
+      return next(new ErrorHandler("Feedback not found", 400));
+    }
+
+    await feedbackRef.update({
+      status: status.toLowerCase(),
+      updatedAt: new Date(),
+    });
+
+    res.status(200).send({
+      success: true,
+      message: "Feedback status updated successfully",
+      feedbackId,
+      status: status.toLowerCase(),
+    });
+  } catch (error) {
+    console.error("Error updating feedback status:", error);
+    next(error);
+  }
+};

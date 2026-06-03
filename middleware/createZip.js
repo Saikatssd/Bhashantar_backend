@@ -1,8 +1,7 @@
 const axios = require("axios");
-// const path = require('path')
+const fs = require("fs");
+const path = require("path");
 const puppeteer = require("puppeteer");
-// const chromium = require('@sparticuz/chromium');
-// const puppeteer = require('puppeteer-core');
 const ErrorHandler = require("../utils/errorHandler");
 const { db } = require("../firebaseAdmin");
 const htmlToDocx = require("html-to-docx");
@@ -10,7 +9,313 @@ const { Storage } = require("@google-cloud/storage");
 const storage = new Storage();
 const bucketName = "bhasantar";
 const JSZip = require("jszip");
-const { JSDOM } = require("jsdom"); // Add this at the top of your file
+const { JSDOM } = require("jsdom");
+
+// ---------------------------------------------------------------------------
+// Font Embedding Utility
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads Nirmala UI font files from disk and returns base64-encoded @font-face CSS.
+ * Results are cached after first read to avoid repeated file I/O.
+ */
+let _fontCache = null;
+function getEmbeddedFontCSS() {
+  if (_fontCache) return _fontCache;
+
+  const fontsDir = path.join(__dirname, "..", "public", "fonts");
+  const fonts = [
+    {
+      family: "Nirmala UI",
+      file: "Nirmala.ttf",
+      weight: "normal",
+      style: "normal",
+    },
+    {
+      family: "Nirmala UI",
+      file: "Nirmala-Bold.ttf",
+      weight: "bold",
+      style: "normal",
+    },
+    {
+      family: "nirmala-ui",
+      file: "Nirmala.ttf",
+      weight: "normal",
+      style: "normal",
+    },
+    {
+      family: "nirmala-ui",
+      file: "Nirmala-Bold.ttf",
+      weight: "bold",
+      style: "normal",
+    },
+  ];
+
+  const fontFaces = fonts.map((f) => {
+    const filePath = path.join(fontsDir, f.file);
+    if (!fs.existsSync(filePath)) {
+      console.warn(`Font file not found: ${filePath}`);
+      return "";
+    }
+    const base64 = fs.readFileSync(filePath).toString("base64");
+    return `
+      @font-face {
+        font-family: '${f.family}';
+        src: url(data:font/truetype;base64,${base64}) format('truetype');
+        font-weight: ${f.weight};
+        font-style: ${f.style};
+        font-display: swap;
+      }`;
+  });
+
+  _fontCache = fontFaces.join("\n");
+  return _fontCache;
+}
+
+// ---------------------------------------------------------------------------
+// PDF HTML Template Builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Wraps editor HTML in a complete document with embedded Nirmala UI fonts,
+ * editor-matching CSS, and @page rules for Legal page size.
+ * No page-break handling — PDF flows naturally.
+ */
+function buildPdfHtml(editorHtml) {
+  const fontCSS = getEmbeddedFontCSS();
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* === Embedded Nirmala UI Fonts === */
+    ${fontCSS}
+
+    /* === Page Layout === */
+    @page {
+      size: Legal;
+      margin: 25mm;
+    }
+
+    * { box-sizing: border-box; }
+
+    /* Override all text elements to force Nirmala UI */
+    body, p, span, div, td, th, li, a, h1, h2, h3, h4, h5, h6 {
+      font-family: 'Nirmala UI', 'nirmala-ui', sans-serif !important;
+    }
+
+    body {
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000000;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* === Typography & Spacing === */
+    body, p, span, div, td, th, li {
+      white-space: pre-wrap;
+      line-height: 1.5 !important;
+    }
+
+    p { margin: 0; line-height: 1.5; }
+    h1, h2, h3, h4, h5, h6 { font-weight: bold; margin: 0 0 10px 0; }
+
+    /* === Quill / Editor Alignment Classes === */
+    .ql-align-center { text-align: center !important; }
+    .ql-align-right { text-align: right !important; }
+    .ql-align-justify { text-align: justify !important; }
+    .ql-align-left { text-align: left !important; }
+
+    /* === Quill / Editor Indentation Classes === */
+    .ql-indent-1 { padding-left: 3em !important; }
+    .ql-indent-2 { padding-left: 6em !important; }
+    .ql-indent-3 { padding-left: 9em !important; }
+    .ql-indent-4 { padding-left: 12em !important; }
+    .ql-indent-5 { padding-left: 15em !important; }
+    .ql-indent-6 { padding-left: 18em !important; }
+    .ql-indent-7 { padding-left: 21em !important; }
+    .ql-indent-8 { padding-left: 24em !important; }
+
+    /* === Tables (matching editor styles) === */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+    }
+    td, th {
+      border: 1px solid #000000;
+      padding: 5px 10px;
+      min-width: 90px;
+    }
+
+    /* === Lists === */
+    ul, ol { margin: 0.5em 0; padding-left: 2em; }
+    li { line-height: 1.5; }
+
+    /* === Helper / Editor elements to hide in PDF === */
+    hr.page-break {
+      display: none !important;
+    }
+    
+    strong, b { font-weight: bold !important; }
+    em, i { font-style: italic !important; }
+
+    /* === Images === */
+    img {
+      max-width: 100%;
+      height: auto;
+      margin: 8px 0;
+    }
+
+    /* === Links === */
+    a { color: #0563C1; text-decoration: underline; }
+  </style>
+</head>
+<body>${editorHtml}</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// HTML Normalization Layer
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalizes HTML for both PDF and DOCX pipelines.
+ * Bridges editor inline styles and Quill classes to a canonical format.
+ */
+function normalizeHtml(rawHtml) {
+  const dom = new JSDOM(rawHtml);
+  const document = dom.window.document;
+
+  // 1. Normalize execCommand inline styles
+  const bTags = document.querySelectorAll("b, strong");
+  bTags.forEach((tag) => {
+    const strong = document.createElement("strong");
+    strong.setAttribute("style", tag.getAttribute("style") || "");
+    strong.innerHTML = tag.innerHTML;
+    tag.replaceWith(strong);
+  });
+
+  const iTags = document.querySelectorAll("i, em");
+  iTags.forEach((tag) => {
+    const em = document.createElement("em");
+    em.setAttribute("style", tag.getAttribute("style") || "");
+    em.innerHTML = tag.innerHTML;
+    tag.replaceWith(em);
+  });
+
+  const uTags = document.querySelectorAll("u");
+  uTags.forEach((tag) => {
+    const u = document.createElement("u");
+    u.setAttribute("style", tag.getAttribute("style") || "");
+    u.innerHTML = tag.innerHTML;
+    tag.replaceWith(u);
+  });
+
+  // 2. Normalize font-family values
+  const elementsWithStyle = document.querySelectorAll("[style]");
+  elementsWithStyle.forEach((el) => {
+    let style = el.getAttribute("style");
+    if (style.match(/font-family:\s*nirmala-ui/i)) {
+      style = style.replace(
+        /font-family:\s*nirmala-ui/gi,
+        "font-family: 'Nirmala UI'"
+      );
+      el.setAttribute("style", style);
+    }
+  });
+
+  // 3. Table normalization
+  const tables = document.querySelectorAll("table");
+  tables.forEach((table) => {
+    let tableStyle = table.getAttribute("style") || "";
+    table.setAttribute(
+      "style",
+      `${tableStyle}; border-collapse: collapse; width: 100%; border: 1px solid black;`
+    );
+    const rows = table.querySelectorAll("tr");
+    rows.forEach((row) => {
+      row.setAttribute("style", "border: 1px solid black;");
+      const cells = row.querySelectorAll("td, th");
+      cells.forEach((cell) => {
+        const existingStyle = cell.getAttribute("style") || "";
+        cell.setAttribute(
+          "style",
+          `${existingStyle}; border: 1px solid black !important; padding: 4px;`
+        );
+        if (!cell.innerHTML.trim()) {
+          cell.innerHTML = "&nbsp;";
+        }
+      });
+    });
+  });
+
+  // 4. Ensure line height 1.5
+  const blocks = document.querySelectorAll(
+    "p, div, li, h1, h2, h3, h4, h5, h6"
+  );
+  blocks.forEach((block) => {
+    const existingStyle = block.getAttribute("style") || "";
+    block.setAttribute("style", `${existingStyle}; line-height: 1.5;`);
+  });
+
+  return document.documentElement.outerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// DOCX Preprocessing (DOM mutations for Word compatibility)
+// ---------------------------------------------------------------------------
+
+function preprocessForDocx(htmlContent) {
+  let normalized = normalizeHtml(htmlContent);
+
+  // Replace page breaks for DOCX
+  normalized = normalized.replace(
+    /<hr\s+class="page-break"[^>]*>/gi,
+    '<div style="page-break-after: always;"></div>'
+  );
+
+  const dom = new JSDOM(normalized);
+  const document = dom.window.document;
+
+  // Process <em> tags: replace with <span> and nested <i>
+  const emTags = document.querySelectorAll("em");
+  emTags.forEach((tag) => {
+    const span = document.createElement("span");
+    const existingStyle = tag.getAttribute("style");
+    if (existingStyle) {
+      span.setAttribute("style", existingStyle);
+    }
+    const italicTag = document.createElement("i");
+    italicTag.innerHTML = tag.innerHTML;
+    span.appendChild(italicTag);
+    tag.replaceWith(span);
+  });
+
+  // Process <strong> tags: replace with <span> and nested <strong>
+  const strongTags = document.querySelectorAll("strong");
+  strongTags.forEach((tag) => {
+    const span = document.createElement("span");
+    const existingStyle = tag.getAttribute("style");
+    if (existingStyle) {
+      span.setAttribute("style", existingStyle);
+    }
+    const boldTag = document.createElement("strong");
+    boldTag.innerHTML = tag.innerHTML;
+    span.appendChild(boldTag);
+    tag.replaceWith(span);
+  });
+
+  return document.documentElement.outerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Main Pipeline
+// ---------------------------------------------------------------------------
 
 const fetchDocumentAndCreateZip = async (
   projectId,
@@ -31,7 +336,7 @@ const fetchDocumentAndCreateZip = async (
   const { name } = doc.data();
   const htmlFileName = name.replace(".pdf", ".html");
   const htmlFilePath = `projects/${projectId}/${htmlFileName}`;
-  const pdfFilePath = `projects/${projectId}/${name}`; // Assuming the PDF is stored as the original name
+  const pdfFilePath = `projects/${projectId}/${name}`;
 
   const bucket = storage.bucket(bucketName);
 
@@ -50,105 +355,26 @@ const fetchDocumentAndCreateZip = async (
     throw new ErrorHandler("HTML content is empty or undefined", 500);
   }
 
-  // Replace custom page breaks with actual page breaks in the HTML
+  // Common preprocessing: convert line-indent classes to non-breaking spaces
   htmlContent = htmlContent.replace(
-    /<p([^>]*?)class="[^"]*\bline-indent\b[^"]*"([^>]*?)>/g,
+    /<p([^>]*?)class="[^"]*\bline-indent\b[^"]*"([^>]*)>/g,
     "<p$1$2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
   );
 
-  // NEW STEP: Replace the custom page break tag with one that the DOCX converter understands.
-  // This replacement takes any <hr> tag with class "page-break" and replaces it
-  // with a div that has "page-break-after: always;".
-  htmlContent = htmlContent.replace(
-    /<hr\s+class="page-break"[^>]*>/gi,
-    '<div style="page-break-after: always;"></div>'
-  );
-
-  const dom = new JSDOM(htmlContent);
-  const document = dom.window.document;
-
-  // Process tables to ensure they have explicit borders for MS Word
-  const tables = document.querySelectorAll("table");
-  tables.forEach((table) => {
-    // Add border-collapse and full width
-    table.setAttribute(
-      "style",
-      "border-collapse: collapse; width: 100%; border: 1px solid black;"
-    );
-    // Process all table rows
-    const rows = table.querySelectorAll("tr");
-    rows.forEach((row) => {
-      row.setAttribute("style", "border: 1px solid black;");
-      // Process all cells in this row
-      const cells = row.querySelectorAll("td");
-      cells.forEach((cell) => {
-        // Add explicit border styling to each cell with !important to override other styles
-        const existingStyle = cell.getAttribute("style") || "";
-        cell.setAttribute(
-          "style",
-          `${existingStyle}; border: 1px solid black !important;`
-        );
-      });
-    });
-  });
-  // Add explicit table CSS to the head
-  const head = document.querySelector("head") || document.createElement("head");
-  const tableStyle = document.createElement("style");
-  tableStyle.textContent = `
-    table { border-collapse: collapse; width: 100%; border: 1px solid black; }
-    table tr { border: 1px solid black; }
-    table td { border: 1px solid black; padding: 4px; }
-  `;
-  head.appendChild(tableStyle);
-  if (!document.querySelector("head")) {
-    document.documentElement.insertBefore(head, document.body);
-  }
-
-  const emTags = document.querySelectorAll("em");
-  emTags.forEach((tag) => {
-    // Create a new <span> for existing styles
-    const span = document.createElement("span");
-    const existingStyle = tag.getAttribute("style") || "";
-    if (existingStyle) {
-      span.setAttribute("style", existingStyle);
-    }
-
-    // Create an <i> tag for italics
-    const italicTag = document.createElement("i");
-    italicTag.innerHTML = tag.innerHTML;
-
-    // Nest the <i> tag inside the <span>
-    span.appendChild(italicTag);
-
-    // Replace the original <em> tag with the new <span>
-    tag.replaceWith(span);
-  });
-
-  // Process <strong> tags: replace with <span> and nested <strong>
-  const strongTags = document.querySelectorAll("strong");
-  strongTags.forEach((tag) => {
-    const span = document.createElement("span");
-    const existingStyle = tag.getAttribute("style") || "";
-    if (existingStyle) {
-      span.setAttribute("style", existingStyle);
-    }
-    const boldTag = document.createElement("strong");
-    boldTag.innerHTML = tag.innerHTML;
-    span.appendChild(boldTag);
-    tag.replaceWith(span);
-  });
-
-  // Update the htmlContent with the modified DOM
-  htmlContent = document.documentElement.outerHTML;
-
   let convertedFileBuffer;
   let convertedFileName;
-  // Convert to PDF or DOCX based on the request
+
+  // ---- PDF Path (clean HTML → embedded fonts → Puppeteer) ----
   if (convertToFileType === "pdf") {
-    convertedFileName = `${name.replace(".pdf", "")}Translation.pdf`;
+    convertedFileName = `bn_${name.replace(".pdf", "")}.pdf`;
     convertedFileBuffer = await htmlToPdf(htmlContent);
+
+    // ---- DOCX Path (DOM mutations for Word compatibility) ----
   } else if (convertToFileType === "docx") {
     convertedFileName = `${name.replace(".pdf", "")}.docx`;
+
+    // Apply DOCX-specific DOM mutations
+    const docxHtml = preprocessForDocx(htmlContent);
 
     const options = {
       table: { row: { cantSplit: true } },
@@ -183,6 +409,7 @@ const fetchDocumentAndCreateZip = async (
         },
       },
     };
+
     const extractBase64Data = (dataUri) => {
       const matches = dataUri.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
@@ -194,22 +421,21 @@ const fetchDocumentAndCreateZip = async (
     // Process images in HTML content
     const processedHtmlContent =
       `<div style="line-height: 1.5;">` +
-      htmlContent
+      docxHtml
         .replace(
-          /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g, // Process base64 images
+          /<img[^>]+src="(data:image\/[^;]+;base64[^"]+)"[^>]*>/g,
           (match, dataUri) => {
             try {
               const base64Data = extractBase64Data(dataUri);
-              // No need to decode and re-encode, just use the extracted base64 data
               return `<img src="data:image/png;base64,${base64Data}">`;
             } catch (error) {
               console.error("Error processing base64 image:", error);
-              return match; // Return original img tag if processing fails
+              return match;
             }
           }
         )
         .replace(
-          /class="ql-align-(center|right|left|justify)"/g, // Convert alignment classes to inline style
+          /class="ql-align-(center|right|left|justify)"/g,
           (match, alignment) => `style="text-align: ${alignment};"`
         )
         .replace(/font-family:\s*nirmala-ui/gi, "font-family: Nirmala UI") +
@@ -244,8 +470,6 @@ const fetchDocumentAndCreateZip = async (
             </html>
         `;
 
-    // console.log("html content : ", styledHtmlContent);
-
     convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(
       (err) => {
         throw new ErrorHandler(
@@ -262,35 +486,89 @@ const fetchDocumentAndCreateZip = async (
   } else {
     throw new ErrorHandler("Invalid file type requested", 400);
   }
+
   // Return the converted file buffer, name, and original PDF path
   return { convertedFileBuffer, convertedFileName, pdfFilePath, name };
 };
 
-const htmlToPdf = async (htmlContent) => {
-  let browser;
+// ---------------------------------------------------------------------------
+// PDF Generation (Puppeteer with embedded fonts and pooling)
+// ---------------------------------------------------------------------------
+
+let browserInstance = null;
+let browserLock = false;
+const BROWSER_REUSE_LIMIT = 50;
+let browserUseCount = 0;
+
+async function getBrowser() {
+  if (browserInstance && browserUseCount < BROWSER_REUSE_LIMIT) {
+    return browserInstance;
+  }
+  while (browserLock) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  browserLock = true;
   try {
-    browser = await puppeteer.launch({
+    if (browserInstance) {
+      await browserInstance.close().catch(() => {});
+    }
+    browserInstance = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--font-render-hinting=none",
+        "--force-color-profile=srgb",
+        "--disable-dev-shm-usage",
+        "--single-process",
+        "--disable-gpu",
+        "--no-zygote",
+      ],
+      timeout: 30000,
+    });
+    browserUseCount = 0;
+    return browserInstance;
+  } finally {
+    browserLock = false;
+  }
+}
+
+const htmlToPdf = async (htmlContent) => {
+  let page = null;
+  try {
+    const normalized = normalizeHtml(htmlContent);
+    const fullHtml = buildPdfHtml(normalized);
+
+    const browser = await getBrowser();
+    browserUseCount++;
+
+    page = await browser.newPage();
+
+    // Set content and wait for it to load
+    await page.setContent(fullHtml, {
+      waitUntil: "load",
+      timeout: 30000,
     });
 
-    const page = await browser.newPage();
+    // CRITICAL: Explicitly wait for font rasterization and force reflow
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      document.body.style.display = "none";
+      document.body.offsetHeight; // trigger reflow
+      document.body.style.display = "";
+    });
 
-    await page.setContent(
-      `
-      <html>
-        <head>
-          <style>
-            body { line-height: 1.5; }
-            p { line-height: 1.5; margin: 0; }
-            h1, h2, h3, h4, h5, h6 { font-weight: bold; margin: 0 0 10px 0; }
-          </style>
-        </head>
-        <body>${htmlContent}</body>
-      </html>
-    `,
-      { waitUntil: "networkidle0" }
+    // Validate fonts
+    const loadedFonts = await page.evaluate(() => {
+      return [...document.fonts].map((f) => f.family);
+    });
+    console.log("Fonts loaded for PDF:", loadedFonts);
+    const hasNirmala = loadedFonts.some((f) =>
+      f.toLowerCase().includes("nirmala")
     );
+    if (!hasNirmala) {
+      console.warn("Nirmala UI font NOT loaded — Bengali may render as tofu");
+    }
 
     const pdfBuffer = await page.pdf({
       format: "Legal",
@@ -300,22 +578,28 @@ const htmlToPdf = async (htmlContent) => {
         bottom: "25mm",
         left: "25mm",
       },
+      printBackground: true,
+      preferCSSPageSize: true,
     });
 
-    // Log the generated buffer size
-    // console.log("Generated PDF Buffer size:", pdfBuffer.length);
-
-    // Explicitly convert to a Buffer instance
     return Buffer.from(pdfBuffer);
   } catch (error) {
     console.error("Error generating PDF:", error);
+    if (browserInstance) {
+      browserInstance.close().catch(() => {});
+      browserInstance = null;
+    }
     throw error;
   } finally {
-    if (browser) {
-      await browser.close();
+    if (page) {
+      await page.close().catch(() => {});
     }
   }
 };
+
+// ---------------------------------------------------------------------------
+// DOCX Post-Processing
+// ---------------------------------------------------------------------------
 
 /**
  * Applies legal page size and hardcodes line-height to 1.5 for a DOCX file buffer.
