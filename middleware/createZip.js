@@ -136,14 +136,15 @@ function buildPdfHtml(editorHtml) {
 
     * { box-sizing: border-box; }
 
-    /* Override all text elements to force Nirmala UI */
+    /* Override all text elements to force Nirmala UI and line height */
     body, p, span, div, td, th, li, a, h1, h2, h3, h4, h5, h6 {
       font-family: 'Nirmala UI', 'nirmala-ui', sans-serif !important;
+      line-height: 1.5 !important;
     }
 
     body {
       font-size: 12pt;
-      line-height: normal;
+      line-height: 1.5 !important;
       color: #000000;
       margin: 0;
       padding: 0;
@@ -177,14 +178,20 @@ function buildPdfHtml(editorHtml) {
 
     /* === Tables (matching editor styles) === */
     table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 12px 0;
+      border-collapse: collapse !important;
+      width: 99.5% !important; /* Avoids right border clipping in PDF */
+      max-width: 99.5% !important;
+      margin: 12px auto !important;
+      table-layout: fixed !important;
+      word-wrap: break-word !important;
     }
     td, th {
-      border: 1px solid #000000;
-      padding: 5px 10px;
-      min-width: 90px;
+      border: 1px solid #000000 !important;
+      padding: 5px 10px !important;
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      overflow-wrap: anywhere !important;
+      white-space: pre-wrap !important;
     }
 
     /* === Lists === */
@@ -293,19 +300,22 @@ function normalizeHtml(rawHtml) {
   const tables = document.querySelectorAll("table");
   tables.forEach((table) => {
     let tableStyle = table.getAttribute("style") || "";
+    tableStyle = tableStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
+    
     table.setAttribute(
       "style",
-      `${tableStyle}; border-collapse: collapse; width: 100%; border: 1px solid black;`
+      `${tableStyle}; border-collapse: collapse !important; width: 99.5% !important; max-width: 99.5% !important; margin: 12px auto !important; table-layout: fixed !important; border: 1px solid black !important;`
     );
     const rows = table.querySelectorAll("tr");
     rows.forEach((row) => {
-      row.setAttribute("style", "border: 1px solid black;");
+      row.setAttribute("style", "border: 1px solid black !important;");
       const cells = row.querySelectorAll("td, th");
       cells.forEach((cell) => {
-        const existingStyle = cell.getAttribute("style") || "";
+        let existingStyle = cell.getAttribute("style") || "";
+        existingStyle = existingStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
         cell.setAttribute(
           "style",
-          `${existingStyle}; border: 1px solid black !important; padding: 4px;`
+          `${existingStyle}; border: 1px solid black !important; padding: 4px !important; word-break: break-word !important; overflow-wrap: anywhere !important; white-space: pre-wrap !important;`
         );
         if (!cell.innerHTML.trim()) {
           cell.innerHTML = "&nbsp;";
