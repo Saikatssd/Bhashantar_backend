@@ -47,6 +47,7 @@ exports.getCompanies = async (req, res) => {
 // Route to get users for a company
 exports.getCompanyUsers = async (req, res) => {
     const { companyId } = req.params;
+    const activeOnly = req.query.activeOnly === 'true';
 
     try {
         const companyRef = db.collection('companies').doc(companyId);
@@ -57,13 +58,15 @@ exports.getCompanyUsers = async (req, res) => {
         const usersRef = db.collection('users').where('companyId', '==', companyId);
         const usersSnapshot = await usersRef.get();
 
-        const users = usersSnapshot.docs.map(doc => ({
-            ...doc.data(),
-            uid: doc.id,
-            // email: doc.data().email,
-            // role: doc.data().role,
-            // companyId: companyId,
-        }));
+        const users = usersSnapshot.docs
+            .map(doc => ({
+                ...doc.data(),
+                uid: doc.id,
+                // email: doc.data().email,
+                // role: doc.data().role,
+                // companyId: companyId,
+            }))
+            .filter(user => !activeOnly || user.disabled !== true);
 
         const response = {
             users,
@@ -132,6 +135,5 @@ exports.getAllUsersInCompany = async (req, res, next) => {
         return next(new ErrorHandler('Internal server error', 500));
     }
 };
-
 
 

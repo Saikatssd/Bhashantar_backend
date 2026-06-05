@@ -38,6 +38,24 @@ function getEmbeddedFontCSS() {
       style: "normal",
     },
     {
+      family: "Nirmala UI",
+      file: "Nirmala-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      family: "Nirmala UI",
+      file: "Nirmala-Bold.ttf",
+      weight: "800",
+      style: "normal",
+    },
+    {
+      family: "Nirmala UI",
+      file: "Nirmala-Bold.ttf",
+      weight: "900",
+      style: "normal",
+    },
+    {
       family: "nirmala-ui",
       file: "Nirmala.ttf",
       weight: "normal",
@@ -47,6 +65,24 @@ function getEmbeddedFontCSS() {
       family: "nirmala-ui",
       file: "Nirmala-Bold.ttf",
       weight: "bold",
+      style: "normal",
+    },
+    {
+      family: "nirmala-ui",
+      file: "Nirmala-Bold.ttf",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      family: "nirmala-ui",
+      file: "Nirmala-Bold.ttf",
+      weight: "800",
+      style: "normal",
+    },
+    {
+      family: "nirmala-ui",
+      file: "Nirmala-Bold.ttf",
+      weight: "900",
       style: "normal",
     },
   ];
@@ -107,7 +143,7 @@ function buildPdfHtml(editorHtml) {
 
     body {
       font-size: 12pt;
-      line-height: 1.5;
+      line-height: normal;
       color: #000000;
       margin: 0;
       padding: 0;
@@ -118,11 +154,10 @@ function buildPdfHtml(editorHtml) {
     /* === Typography & Spacing === */
     body, p, span, div, td, th, li {
       white-space: pre-wrap;
-      line-height: 1.5 !important;
     }
 
-    p { margin: 0; line-height: 1.5; }
-    h1, h2, h3, h4, h5, h6 { font-weight: bold; margin: 0 0 10px 0; }
+    p { margin: 0; }
+    h1, h2, h3, h4, h5, h6 { font-weight: 800; margin: 0 0 10px 0; }
 
     /* === Quill / Editor Alignment Classes === */
     .ql-align-center { text-align: center !important; }
@@ -154,14 +189,33 @@ function buildPdfHtml(editorHtml) {
 
     /* === Lists === */
     ul, ol { margin: 0.5em 0; padding-left: 2em; }
-    li { line-height: 1.5; }
+    li { line-height: inherit; }
 
     /* === Helper / Editor elements to hide in PDF === */
     hr.page-break {
       display: none !important;
     }
     
-    strong, b { font-weight: bold !important; }
+    strong, b,
+    [style*="font-weight: bold" i],
+    [style*="font-weight:bold" i],
+    [style*="font-weight: bolder" i],
+    [style*="font-weight:bolder" i],
+    [style*="font-weight: 600" i],
+    [style*="font-weight:600" i],
+    [style*="font-weight: 700" i],
+    [style*="font-weight:700" i],
+    [style*="font-weight: 800" i],
+    [style*="font-weight:800" i],
+    [style*="font-weight: 900" i],
+    [style*="font-weight:900" i] {
+      font-weight: 900 !important;
+      -webkit-text-stroke: 0.28px currentColor;
+      text-shadow:
+        0.18px 0 0 currentColor,
+        -0.18px 0 0 currentColor,
+        0 0.12px 0 currentColor;
+    }
     em, i { font-style: italic !important; }
 
     /* === Images === */
@@ -225,8 +279,14 @@ function normalizeHtml(rawHtml) {
         /font-family:\s*nirmala-ui/gi,
         "font-family: 'Nirmala UI'"
       );
-      el.setAttribute("style", style);
     }
+
+    style = style.replace(
+      /font-weight\s*:\s*(bold|bolder|[6-9]00)\b/gi,
+      "font-weight: 900"
+    );
+
+    el.setAttribute("style", style);
   });
 
   // 3. Table normalization
@@ -252,15 +312,6 @@ function normalizeHtml(rawHtml) {
         }
       });
     });
-  });
-
-  // 4. Ensure line height 1.5
-  const blocks = document.querySelectorAll(
-    "p, div, li, h1, h2, h3, h4, h5, h6"
-  );
-  blocks.forEach((block) => {
-    const existingStyle = block.getAttribute("style") || "";
-    block.setAttribute("style", `${existingStyle}; line-height: 1.5;`);
   });
 
   return document.documentElement.outerHTML;
@@ -330,7 +381,10 @@ const fetchDocumentAndCreateZip = async (
   const doc = await documentRef.get();
 
   if (!doc.exists) {
-    throw new ErrorHandler("Document Not Found", 404);
+    throw new ErrorHandler(
+      "We couldn't find this document. Please refresh the page and try again.",
+      404
+    );
   }
 
   const { name } = doc.data();
@@ -352,7 +406,10 @@ const fetchDocumentAndCreateZip = async (
   let htmlContent = htmlResponse.data;
 
   if (!htmlContent) {
-    throw new ErrorHandler("HTML content is empty or undefined", 500);
+    throw new ErrorHandler(
+      "This document has no saved content to convert. Please save it and try the download again.",
+      400
+    );
   }
 
   // Common preprocessing: convert line-indent classes to non-breaking spaces
@@ -473,7 +530,7 @@ const fetchDocumentAndCreateZip = async (
     convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(
       (err) => {
         throw new ErrorHandler(
-          "Error during HTML to DOCX conversion: " + err.message,
+          "We couldn't prepare the DOCX download right now. Please try again in a moment.",
           500
         );
       }
@@ -484,7 +541,7 @@ const fetchDocumentAndCreateZip = async (
       convertedFileBuffer
     );
   } else {
-    throw new ErrorHandler("Invalid file type requested", 400);
+    throw new ErrorHandler("Invalid download type requested.", 400);
   }
 
   // Return the converted file buffer, name, and original PDF path
@@ -589,7 +646,13 @@ const htmlToPdf = async (htmlContent) => {
       browserInstance.close().catch(() => {});
       browserInstance = null;
     }
-    throw error;
+    if (error instanceof ErrorHandler) {
+      throw error;
+    }
+    throw new ErrorHandler(
+      "We couldn't prepare the PDF download right now. Please try again in a moment.",
+      500
+    );
   } finally {
     if (page) {
       await page.close().catch(() => {});

@@ -277,11 +277,15 @@ exports.downloadDocx = async (req, res, next) => {
             "Content-Disposition",
             `attachment; filename="${name.replace(".pdf", "")}.zip"`
         );
+        res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
         // Create a ZIP archive
         const archive = archiver("zip", { zlib: { level: 2 } });
         archive.on("error", (err) => {
-            throw err;
+            console.error("Archive creation failed:", err);
+            if (!res.headersSent) {
+                return next(new ErrorHandler("The ZIP file could not be created. Please try again.", 500));
+            }
         });
         archive.pipe(res);
 
@@ -289,13 +293,26 @@ exports.downloadDocx = async (req, res, next) => {
         archive.append(convertedFileBuffer, { name: convertedFileName });
 
         // Fetch and add original PDF using the signed URL
-        const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
-        archive.append(pdfResponse.data, { name });
+        try {
+            const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
+            archive.append(pdfResponse.data, { name });
+        } catch (err) {
+            console.error("Error fetching original PDF:", err);
+            archive.append("Error fetching original PDF", { name: "error.txt" });
+        }
 
         await archive.finalize();
     } catch (error) {
         console.error("Error exporting DOCX document:", error);
-        next(error);
+        if (error.statusCode && error.message) {
+            return next(error);
+        }
+        next(
+            new ErrorHandler(
+                "We couldn't prepare the DOCX download right now. Please try again in a moment.",
+                500
+            )
+        );
     }
 };
 
@@ -312,11 +329,8 @@ exports.downloadPdf = async (req, res, next) => {
         // Debugging: Check if the buffer is valid
         if (!convertedFileBuffer || !Buffer.isBuffer(convertedFileBuffer)) {
             console.log("Invalid or non-buffer PDF content detected.");
-            return next(new ErrorHandler("Converted PDF Buffer is invalid.", 400));
+            return next(new ErrorHandler("The download could not be prepared. Please try again.", 500));
         }
-
-        // console.log("Proceeding with ZIP creation.");
-        // console.log("Converted PDF Buffer size:", convertedFileBuffer.length);
 
         const bucket = storage.bucket(bucketName);
 
@@ -329,7 +343,7 @@ exports.downloadPdf = async (req, res, next) => {
 
         // Ensure the signed URL exists
         if (!pdfSignedUrl) {
-            return next(new ErrorHandler("Could not generate signed URL.", 500));
+            return next(new ErrorHandler("The original PDF could not be attached to the download. Please try again.", 500));
         }
 
         // Set headers for zip download
@@ -338,18 +352,20 @@ exports.downloadPdf = async (req, res, next) => {
             "Content-Disposition",
             `attachment; filename="${name.replace(".pdf", "")}.zip"`
         );
+        res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
         // Create a ZIP archive
         const archive = archiver("zip", { zlib: { level: 0 } }); // No compression for binary data
         archive.on("error", (err) => {
             console.error("Archive creation failed:", err);
-            return next(new ErrorHandler("Archive creation failed.", 500));
+            if (!res.headersSent) {
+                return next(new ErrorHandler("The ZIP file could not be created. Please try again.", 500));
+            }
         });
 
         archive.pipe(res);
 
         // Add converted PDF file to the zip
-        // console.log("Appending converted PDF buffer to the ZIP archive.");
         archive.append(convertedFileBuffer, { name: convertedFileName });
 
         // Fetch and add original PDF using the signed URL
@@ -358,7 +374,7 @@ exports.downloadPdf = async (req, res, next) => {
             archive.append(pdfResponse.data, { name });
         } catch (err) {
             console.error("Error fetching original PDF:", err);
-            return next(new ErrorHandler("Could not fetch original PDF.", 404));
+            archive.append("Error fetching original PDF", { name: "error.txt" });
         }
 
         // Finalize the zip
@@ -366,7 +382,15 @@ exports.downloadPdf = async (req, res, next) => {
 
     } catch (error) {
         console.error("Error exporting PDF document:", error);
-        return next(new ErrorHandler(error));
+        if (error.statusCode && error.message) {
+            return next(error);
+        }
+        return next(
+            new ErrorHandler(
+                "We couldn't prepare the download right now. Please try again in a moment.",
+                500
+            )
+        );
     }
 };
 
@@ -374,27 +398,30 @@ exports.downloadPdf = async (req, res, next) => {
 
 // Multi-file download and zip handler
 exports.downloadSelectedFiles = async (req, res, next) => {
-    const { projectId, documentIds } = req.body; // Expecting an array of documentIds
+    const { projectId, documentIds, format = 'pdf' } = req.body; // Expecting an array of documentIds
   
     try {
       // Set up response for zip download
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="selected_files.zip"`);
+      res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
   
       // Create a ZIP archive
       const archive = archiver('zip', { zlib: { level: 2 } });
       archive.on('error', (err) => {
         console.error('Error creating archive:', err);
-        next(new ErrorHandler('Error creating ZIP archive.', 500));
+        if (!res.headersSent) {
+          next(new ErrorHandler('Error creating ZIP archive.', 500));
+        }
       });
   
       archive.pipe(res);
   
       // Loop through document IDs and add their PDF and DOCX to individual folders
       for (const documentId of documentIds) {
-        // Fetch the document and create the DOCX
+        // Fetch the document and create the DOCX/PDF
         const { convertedFileBuffer, convertedFileName, pdfFilePath, name } =
-          await fetchDocumentAndCreateZip(projectId, documentId, 'docx');
+          await fetchDocumentAndCreateZip(projectId, documentId, format);
   
         const bucket = storage.bucket(bucketName);
   
@@ -410,8 +437,13 @@ exports.downloadSelectedFiles = async (req, res, next) => {
         archive.append(convertedFileBuffer, { name: `${folderName}/${convertedFileName}` });
   
         // Fetch and add original PDF to the same folder
-        const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
-        archive.append(pdfResponse.data, { name: `${folderName}/${name}` });
+        try {
+            const pdfResponse = await axios.get(pdfSignedUrl, { responseType: 'stream' });
+            archive.append(pdfResponse.data, { name: `${folderName}/${name}` });
+        } catch (err) {
+            console.error("Error fetching original PDF:", err);
+            archive.append("Error fetching original PDF", { name: `${folderName}/error.txt` });
+        }
       }
   
       // Finalize the zip
@@ -423,6 +455,4 @@ exports.downloadSelectedFiles = async (req, res, next) => {
   };
 
   
-
-
 
