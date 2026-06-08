@@ -579,22 +579,36 @@ async function getBrowser() {
     if (browserInstance) {
       await browserInstance.close().catch(() => {});
     }
-    browserInstance = await puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--font-render-hinting=none",
-        "--force-color-profile=srgb",
-        "--disable-dev-shm-usage",
-        "--single-process",
-        "--disable-gpu",
-        "--no-zygote",
-      ],
-      timeout: 30000,
-    });
-    browserUseCount = 0;
-    return browserInstance;
+    try {
+      browserInstance = await puppeteer.launch({
+        headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--font-render-hinting=none",
+          "--force-color-profile=srgb",
+          "--disable-dev-shm-usage",
+          "--single-process",
+          "--disable-gpu",
+          "--no-zygote",
+        ],
+        timeout: 30000,
+      });
+      browserUseCount = 0;
+      return browserInstance;
+    } catch (launchError) {
+      // Improve logging and throw a descriptive error so the controller can return a meaningful message
+      console.error('Failed to launch headless browser:', launchError && (launchError.stack || launchError));
+      // If running on App Engine standard, provide a clear actionable message
+      if (process.env.GAE_ENV === 'standard' || process.env.GAE_INSTANCE) {
+        throw new ErrorHandler(
+          'PDF generation is not supported on App Engine Standard in this deployment. Please migrate PDF generation to Cloud Run, App Engine Flexible, or a background worker where headless Chrome is supported.',
+          503
+        );
+      }
+      throw new ErrorHandler('Failed to launch headless browser for PDF generation.', 500);
+    }
   } finally {
     browserLock = false;
   }
@@ -603,6 +617,15 @@ async function getBrowser() {
 const htmlToPdf = async (htmlContent) => {
   let page = null;
   try {
+    // Short-circuit on App Engine Standard where headless Chrome binaries are not available
+    if (process.env.GAE_ENV === 'standard' || process.env.GAE_INSTANCE) {
+      console.error('Attempted PDF generation on App Engine Standard environment. This environment typically does not support headless Chrome.');
+      throw new ErrorHandler(
+        'PDF generation is currently unavailable on this hosting environment. Please deploy the service to Cloud Run or run PDF generation in a background worker (Cloud Run, Cloud Functions with chrome-aws-lambda, or a VM) and retry.',
+        503
+      );
+    }
+
     const normalized = normalizeHtml(htmlContent);
     const fullHtml = buildPdfHtml(normalized);
 
@@ -629,7 +652,6 @@ const htmlToPdf = async (htmlContent) => {
     const loadedFonts = await page.evaluate(() => {
       return [...document.fonts].map((f) => f.family);
     });
-    console.log("Fonts loaded for PDF:", loadedFonts);
     const hasNirmala = loadedFonts.some((f) =>
       f.toLowerCase().includes("nirmala")
     );
@@ -651,7 +673,7 @@ const htmlToPdf = async (htmlContent) => {
 
     return Buffer.from(pdfBuffer);
   } catch (error) {
-    console.error("Error generating PDF:", error);
+    console.error('Error generating PDF:', error && (error.stack || error));
     if (browserInstance) {
       browserInstance.close().catch(() => {});
       browserInstance = null;
