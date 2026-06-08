@@ -167,7 +167,7 @@ app.post("/generateReadSignedUrl", async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the Company and Project Management API");
+  res.send("Welcome to the Bhasantar API 8th June 2026");
 });
 
 app.get("/server-timestamp", (req, res) => {
