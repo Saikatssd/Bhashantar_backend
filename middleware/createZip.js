@@ -335,10 +335,10 @@ function preprocessForDocx(htmlContent) {
   let normalized = normalizeHtml(htmlContent);
 
   // Replace page breaks for DOCX
-  normalized = normalized.replace(
-    /<hr\s+class="page-break"[^>]*>/gi,
-    '<div style="page-break-after: always;"></div>'
-  );
+  // normalized = normalized.replace(
+  //   /<hr\s+class="page-break"[^>]*>/gi,
+  //   '<div style="page-break-after: always;"></div>'
+  // );
 
   const dom = new JSDOM(normalized);
   const document = dom.window.document;

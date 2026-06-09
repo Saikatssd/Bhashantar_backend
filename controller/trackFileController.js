@@ -270,7 +270,7 @@ exports.submitFeedback = async (req, res, next) => {
     }
 
     // Validate quality rating value
-    const validRatings = ["good", "poor", "average", "outstanding"];
+    const validRatings = ["good", "poor", "average", "outstanding","excellent"];
     if (!validRatings.includes(qualityRating)) {
       return next(
         new ErrorHandler(
