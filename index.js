@@ -28,6 +28,8 @@ const corsOptions = {
     "https://bhasantar.com",
     "https://bhashantar-frontend.vercel.app",
     "https://frontend-dot-bhasantar-ui-and-llm.as.r.appspot.com",
+    "https://frontend-484859279811.asia-south1.run.app",
+    "https://frontend-484859279811.us-central1.run.app",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
