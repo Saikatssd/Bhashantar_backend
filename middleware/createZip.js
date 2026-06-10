@@ -252,6 +252,10 @@ function normalizeHtml(rawHtml) {
   const dom = new JSDOM(rawHtml);
   const document = dom.window.document;
 
+  // 0. Strip Quill-internal elements (not valid HTML — breaks DOCX conversion)
+  const tempElements = document.querySelectorAll("temporary");
+  tempElements.forEach((el) => el.remove());
+
   // 1. Normalize execCommand inline styles
   const bTags = document.querySelectorAll("b, strong");
   bTags.forEach((tag) => {
@@ -293,14 +297,48 @@ function normalizeHtml(rawHtml) {
       "font-weight: 900"
     );
 
+    // Convert em font-size to pt (html-to-docx v1.8.0 can't resolve em units)
+    // Base is 12pt — matches body font-size in both PDF and DOCX paths
+    style = style.replace(
+      /font-size\s*:\s*([\d.]+)em/gi,
+      (_match, value) => `font-size: ${(parseFloat(value) * 12).toFixed(1)}pt`
+    );
+
     el.setAttribute("style", style);
   });
 
-  // 3. Table normalization
+  // 3. Table normalization — skip layout tables (border="0" or border:none)
   const tables = document.querySelectorAll("table");
   tables.forEach((table) => {
-    let tableStyle = table.getAttribute("style") || "";
-    tableStyle = tableStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
+    const existingBorder = table.getAttribute("border");
+    const existingStyle = table.getAttribute("style") || "";
+    const isLayoutTable =
+      existingBorder === "0" ||
+      /border\s*:\s*none/i.test(existingStyle) ||
+      /border\s*:\s*0/i.test(existingStyle);
+
+    if (isLayoutTable) {
+      // Strip any border that might have been inherited, keep it invisible
+      table.setAttribute("border", "0");
+      table.setAttribute("cellspacing", "0");
+      table.setAttribute(
+        "style",
+        `${existingStyle}; border-collapse: collapse; width: 100%; border: none !important;`
+      );
+      const cells = table.querySelectorAll("td, th");
+      cells.forEach((cell) => {
+        let cellStyle = cell.getAttribute("style") || "";
+        cellStyle = cellStyle.replace(/border[^;]*;?/gi, "");
+        cell.setAttribute("border", "0");
+        cell.setAttribute(
+          "style",
+          `${cellStyle}; border: none !important; padding: 4px !important;`
+        );
+      });
+      return;
+    }
+
+    let tableStyle = existingStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
     
     table.setAttribute(
       "style",
@@ -311,11 +349,11 @@ function normalizeHtml(rawHtml) {
       row.setAttribute("style", "border: 1px solid black !important;");
       const cells = row.querySelectorAll("td, th");
       cells.forEach((cell) => {
-        let existingStyle = cell.getAttribute("style") || "";
-        existingStyle = existingStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
+        let cellStyle = cell.getAttribute("style") || "";
+        cellStyle = cellStyle.replace(/width:\s*[^;]+;/gi, ""); // Remove inline widths
         cell.setAttribute(
           "style",
-          `${existingStyle}; border: 1px solid black !important; padding: 4px !important; word-break: break-word !important; overflow-wrap: anywhere !important; white-space: pre-wrap !important;`
+          `${cellStyle}; border: 1px solid black !important; padding: 4px !important; word-break: break-word !important; overflow-wrap: anywhere !important; white-space: pre-wrap !important;`
         );
         if (!cell.innerHTML.trim()) {
           cell.innerHTML = "&nbsp;";
@@ -334,11 +372,8 @@ function normalizeHtml(rawHtml) {
 function preprocessForDocx(htmlContent) {
   let normalized = normalizeHtml(htmlContent);
 
-  // Replace page breaks for DOCX
-  // normalized = normalized.replace(
-  //   /<hr\s+class="page-break"[^>]*>/gi,
-  //   '<div style="page-break-after: always;"></div>'
-  // );
+  // Strip !important from inline styles — html-to-docx v1.8.0 doesn't handle it
+  normalized = normalized.replace(/\s*!important\s*/gi, "");
 
   const dom = new JSDOM(normalized);
   const document = dom.window.document;
@@ -539,6 +574,8 @@ const fetchDocumentAndCreateZip = async (
 
     convertedFileBuffer = await htmlToDocx(styledHtmlContent, options).catch(
       (err) => {
+        console.error("htmlToDocx conversion error:", err?.stack || err);
+        console.error("First 2000 chars of HTML that caused the error:", styledHtmlContent?.substring(0, 2000));
         throw new ErrorHandler(
           "We couldn't prepare the DOCX download right now. Please try again in a moment.",
           500
@@ -758,7 +795,21 @@ async function applyLegalPageSizeAndLineHeight(docxBuffer) {
     zip.file(stylesXmlPath, stylesXml);
   }
 
-  // Generate the updated DOCX file buffer and return it
+  // --- Remove table-level borders from all tables ---
+  // html-to-docx v1.8.0 always generates default table borders via <w:tblBorders>,
+  // which overrides inline border: none. We remove table-level borders so that
+  // only cell-level borders (from inline styles) apply. Layout tables with
+  // border: none get no borders; data tables with border: 1px solid black
+  // keep their cell-level borders.
+  documentXml = documentXml.replace(
+    /<w:tblBorders[^>]*>[\s\S]*?<\/w:tblBorders>/gi,
+    ""
+  );
+
+  // Write back the modified document.xml
+  zip.file(documentXmlPath, documentXml);
+
+  // Generate the updated DOCX buffer
   return await zip.generateAsync({ type: "nodebuffer" });
 }
 
